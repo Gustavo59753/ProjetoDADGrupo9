@@ -1,0 +1,29 @@
+{
+  "name": "oficina-mecanica-desktop",
+  "version": "1.0.0",
+  "description": "Sistema de gestão de oficina mecânica em Electron + TypeScript",
+  "main": "out/main/index.js",
+  "author": "Grupo 9 - Projeto DAD",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "npm run typecheck && electron-vite build",
+    "build:win": "npm run build && electron-builder --win",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node scripts/run-smoke.cjs"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "mysql2": "^3.15.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/node": "^24.10.1",
+    "electron": "^45.4.1",
+    "electron-vite": "^6.0.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8"
+  }
+}

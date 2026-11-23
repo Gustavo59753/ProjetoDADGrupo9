@@ -1,0 +1,11 @@
+node_modules/
+out/
+dist/
+data/
+*.log
+.DS_Store
+
+# Credenciais locais — nunca versionar
+.env
+.env.*
+!.env.example
