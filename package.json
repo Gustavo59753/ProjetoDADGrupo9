@@ -5,13 +5,16 @@
   "main": "out/main/index.js",
   "author": "Grupo 9 - Projeto DAD",
   "license": "MIT",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
     "build": "npm run typecheck && electron-vite build",
-    "build:win": "npm run build && electron-builder --win",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node scripts/run-smoke.cjs"
+    "test": "npm run build && node scripts/run-smoke.cjs",
+    "postinstall": "node node_modules/electron/install.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

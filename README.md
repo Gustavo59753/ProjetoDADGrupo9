@@ -69,12 +69,14 @@ O aplicativo **não usa mais um banco local automático**. Ele conecta no seu pr
 
 ## 2. Como executar
 
-Requisitos: **Node.js 20+**, npm e um MySQL/MariaDB acessível.
+Requisitos: **Node.js 20.19+ ou 22.12+**, npm e um MySQL/MariaDB acessível.
 
 ```bash
 npm install
 npm run dev        # desenvolvimento (abre a janela + DevTools)
 ```
+
+O `postinstall` do projeto baixa o binário do Electron e cria `node_modules/electron/path.txt` automaticamente. Se aparecer `Error: Electron uninstall` ao iniciar, rode `npm run postinstall` (ou `npm install` novamente) — isso costuma acontecer quando o `node_modules` foi copiado de outra máquina ou instalado com `--ignore-scripts`.
 
 Produção:
 
