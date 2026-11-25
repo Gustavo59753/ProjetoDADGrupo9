@@ -18,14 +18,18 @@ CREATE TABLE IF NOT EXISTS fornecedores (
 CREATE TABLE IF NOT EXISTS clientes (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   nome         VARCHAR(180) NOT NULL,
+  tipo_pessoa  VARCHAR(2) NOT NULL DEFAULT 'PF',
   cpf_cnpj     VARCHAR(20) UNIQUE,
   telefone     VARCHAR(40) NOT NULL,
   email        VARCHAR(160),
+  cep          VARCHAR(9),
   endereco     VARCHAR(240),
+  numero       VARCHAR(20),
   cidade       VARCHAR(120),
   uf           VARCHAR(2),
   observacoes  TEXT,
-  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_clientes_tipo_pessoa CHECK (tipo_pessoa IN ('PF', 'PJ'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS veiculos (

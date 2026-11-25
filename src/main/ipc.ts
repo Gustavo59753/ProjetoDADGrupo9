@@ -7,6 +7,9 @@ import { getDollarQuote } from './services/exchange';
 import { lookupPlate } from './services/plate';
 import { searchFipe } from './services/fipe';
 import { notifyReady } from './services/notification';
+import { lookupCep } from './services/cep';
+import { lookupCnpj } from './services/cnpj';
+import { validateClientInput } from './services/client-validation';
 
 function assertEntity(value: string): EntityName {
   if (!(value in ENTITIES)) throw new Error(`Entidade desconhecida: ${value}`);
@@ -30,6 +33,7 @@ export function registerIpc(): void {
 
   handle('db:create', async (entity: string, input: Record<string, unknown>) => {
     const name = assertEntity(entity);
+    if (name === 'clientes') validateClientInput(input);
     if (name === 'itens_ordem') {
       const itemId = await ordens.addItem(Number(input.ordem_servico_id), {
         peca_id: Number(input.peca_id),
@@ -48,6 +52,7 @@ export function registerIpc(): void {
 
   handle('db:update', async (entity: string, id: number, input: Record<string, unknown>) => {
     const name = assertEntity(entity);
+    if (name === 'clientes') validateClientInput(input);
     const recordId = Number(id);
     if (name === 'itens_ordem') {
       await ordens.updateItem(recordId, {
@@ -92,8 +97,10 @@ export function registerIpc(): void {
   });
 
   handle('api:dollar', (force?: boolean) => getDollarQuote(Boolean(force)));
-  handle('api:plate', (plate: string) => lookupPlate(plate));
+  handle('db:plate', (plate: string) => lookupPlate(plate));
   handle('api:fipe', (marca: string, modelo: string) => searchFipe(marca, modelo));
+  handle('api:cep', (cep: string) => lookupCep(cep));
+  handle('api:cnpj', (cnpj: string) => lookupCnpj(cnpj));
 
   handle('app:openExternal', (url: string) => shell.openExternal(url));
   handle('app:clipboard', (text: string) => clipboard.writeText(text));

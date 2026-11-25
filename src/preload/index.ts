@@ -1,9 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   ApiResponse,
+  CepData,
+  CnpjData,
   DollarQuote,
   EntityName,
   FipeVehicle,
+  LookupResult,
   NotificationResult,
   PlateData,
 } from '@shared/types';
@@ -35,8 +38,10 @@ const api = {
   notify: (osId: number, message?: string) => invoke<NotificationResult>('os:notify', osId, message),
 
   dollar: (force = false) => invoke<DollarQuote>('api:dollar', force),
-  plate: (plate: string) => invoke<PlateData>('api:plate', plate),
+  plate: (plate: string) => invoke<LookupResult<PlateData>>('db:plate', plate),
   fipe: (marca: string, modelo: string) => invoke<FipeVehicle[]>('api:fipe', marca, modelo),
+  cep: (cep: string) => invoke<LookupResult<CepData>>('api:cep', cep),
+  cnpj: (cnpj: string) => invoke<LookupResult<CnpjData>>('api:cnpj', cnpj),
   openExternal: (url: string) => invoke<null>('app:openExternal', url),
   clipboard: (text: string) => invoke<null>('app:clipboard', text),
 };

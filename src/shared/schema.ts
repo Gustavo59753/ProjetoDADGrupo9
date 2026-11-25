@@ -1,4 +1,7 @@
-import type { EntityMeta, EntityName } from './types';
+import type { EntityMeta, EntityName, PersonType } from './types';
+
+/** Valores aceitos por clientes.tipo_pessoa (alinhados ao CHECK do banco). */
+export const PERSON_TYPES: PersonType[] = ['PF', 'PJ'];
 
 export const ENTITIES: Record<EntityName, EntityMeta> = {
   clientes: {
@@ -8,15 +11,21 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     table: 'clientes',
     primaryKey: 'id',
     columns: [
-      'id', 'nome', 'cpf_cnpj', 'telefone', 'email', 'endereco', 'cidade', 'uf',
-      'observacoes', 'created_at',
+      'id', 'nome', 'tipo_pessoa', 'cpf_cnpj', 'telefone', 'email', 'cep', 'endereco',
+      'numero', 'cidade', 'uf', 'observacoes', 'created_at',
     ],
     fields: [
       { key: 'nome', label: 'Nome completo / Razão social', type: 'text', required: true, placeholder: 'Ex.: João da Silva' },
-      { key: 'cpf_cnpj', label: 'CPF / CNPJ', type: 'text', placeholder: '000.000.000-00' },
+      { key: 'tipo_pessoa', label: 'Tipo de pessoa', type: 'select', options: PERSON_TYPES, required: true, hint: 'Pessoa física: informe CPF. Pessoa jurídica: informe CNPJ.' },
+      {
+        key: 'cpf_cnpj', label: 'CPF / CNPJ', type: 'text', placeholder: '000.000.000-00',
+        hint: 'Informe CPF ou CNPJ conforme o tipo de pessoa. Os dígitos são validados no cadastro; para PJ, os dados são consultados na Minha Receita.',
+      },
       { key: 'telefone', label: 'Telefone / WhatsApp', type: 'text', required: true, placeholder: '(11) 99999-0000', hint: 'Use DDD + número com 10 ou 11 dígitos para receber o aviso.' },
       { key: 'email', label: 'E-mail', type: 'text', placeholder: 'cliente@email.com' },
-      { key: 'endereco', label: 'Endereço', type: 'text', full: true },
+      { key: 'cep', label: 'CEP', type: 'text', placeholder: '00000-000', hint: 'Digite o CEP: endereço, bairro, cidade e UF são buscados pela ViaCEP. Se não encontrado, preencha manualmente.' },
+      { key: 'endereco', label: 'Endereço (logradouro, bairro)', type: 'text', full: true },
+      { key: 'numero', label: 'Número', type: 'text', placeholder: 'Ex.: 120' },
       { key: 'cidade', label: 'Cidade', type: 'text' },
       { key: 'uf', label: 'UF', type: 'text', placeholder: 'SP' },
       { key: 'observacoes', label: 'Observações', type: 'textarea', full: true },
@@ -28,7 +37,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
       { key: 'cidade', label: 'Cidade' },
       { key: 'created_at', label: 'Cadastro', render: 'date' },
     ],
-    searchColumns: ['nome', 'cpf_cnpj', 'telefone', 'email'],
+    searchColumns: ['nome', 'cpf_cnpj', 'telefone', 'email', 'cep'],
     defaultOrder: 'nome ASC',
   },
 
@@ -44,7 +53,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     ],
     fields: [
       { key: 'cliente_id', label: 'Proprietário', type: 'ref', ref: 'clientes', refLabel: 'nome', required: true },
-      { key: 'placa', label: 'Placa', type: 'text', required: true, placeholder: 'ABC1D23 ou ABC-1234', hint: 'Digite a placa e clique em “Buscar dados” para preencher automaticamente.' },
+      { key: 'placa', label: 'Placa', type: 'text', required: true, placeholder: 'ABC1D23 ou ABC-1234', hint: 'Digite a placa e clique em “Buscar dados” para trazer os dados de um veículo já cadastrado.' },
       { key: 'marca', label: 'Marca', type: 'text', placeholder: 'Volkswagen' },
       { key: 'modelo', label: 'Modelo', type: 'text', placeholder: 'Gol 1.0' },
       { key: 'ano_fabricacao', label: 'Ano de fabricação', type: 'number', placeholder: '2020' },
@@ -297,7 +306,7 @@ export const STATUS_COLORS: Record<string, string> = {
 };
 
 export const DEFAULT_VALUES: Record<EntityName, Record<string, unknown>> = {
-  clientes: { uf: 'SP' },
+  clientes: { tipo_pessoa: 'PF', uf: 'SP' },
   veiculos: { importado: 0 },
   mecanicos: { ativo: 1 },
   fornecedores: { pais: 'Brasil' },

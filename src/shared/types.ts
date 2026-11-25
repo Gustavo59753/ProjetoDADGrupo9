@@ -8,6 +8,39 @@ export type EntityName =
   | 'itens_ordem'
   | 'notificacoes';
 
+/** Tipo de pessoa no cadastro de clientes: física (PF) ou jurídica (PJ). */
+export type PersonType = 'PF' | 'PJ';
+
+/** Resultado de consultas a APIs externas: `invalid` bloqueia, `unavailable` apenas avisa. */
+export type LookupResult<T> =
+  | { status: 'found'; data: T }
+  | { status: 'invalid' | 'not_found' | 'unavailable'; message: string };
+
+export interface CepData {
+  cep: string;
+  logradouro: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  complemento?: string;
+  ibge?: string;
+  gia?: string;
+  ddd?: string;
+  siafi?: string;
+}
+
+export interface CnpjData {
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia: string;
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  cep: string;
+}
+
 export type FieldType =
   | 'text'
   | 'number'
@@ -64,19 +97,17 @@ export interface DollarQuote {
   fetchedAt: string;
 }
 
+/** Dados de um veículo do cadastro local, usados para preencher o formulário. */
 export interface PlateData {
   placa: string;
-  marca: string;
-  modelo: string;
-  anoFabricacao?: number | null;
-  anoModelo?: number | null;
-  cor?: string | null;
-  combustivel?: string | null;
-  municipio?: string | null;
-  uf?: string | null;
-  chassi?: string | null;
-  source: 'publica' | 'demonstrativa';
-  note: string;
+  marca: string | null;
+  modelo: string | null;
+  anoFabricacao: number | null;
+  anoModelo: number | null;
+  cor: string | null;
+  combustivel: string | null;
+  chassi: string | null;
+  renavam: string | null;
 }
 
 export interface FipeVehicle {

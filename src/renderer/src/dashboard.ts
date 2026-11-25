@@ -91,7 +91,7 @@ export async function renderDashboard(mount: HTMLElement, navigate: (entity: Ent
 
     <div class="mt-5 flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-xs leading-5 text-slate-500">
       ${icon('info', 'w-4 h-4 shrink-0 text-slate-400')}
-      <p>Integrações sem chave: cotação do dólar via AwesomeAPI (fallback BACEN/PTAX), preços via Preço FIPE e avisos de retirada preparados como link do WhatsApp. A consulta de placa usa API pública quando disponível e, na ausência dela, preenche dados demonstrativos sinalizados na tela.</p>
+      <p>Integrações sem chave: cotação do dólar via AwesomeAPI (fallback BACEN/PTAX), preços via Preço FIPE e avisos de retirada preparados como link do WhatsApp. A consulta de placa busca os dados no cadastro de veículos da oficina.</p>
     </div>`;
 
   mount.querySelector('#open-os')?.addEventListener('click', () => navigate('ordens_servico'));

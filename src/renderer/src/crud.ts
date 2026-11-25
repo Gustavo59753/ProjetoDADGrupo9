@@ -1,5 +1,6 @@
 import { DEFAULT_VALUES, ENTITIES } from '@shared/schema';
 import type { EntityName, FieldDef } from '@shared/types';
+import { setupClientForm } from './clientes';
 import { badge, confirmDialog, dateFmt, esc, fieldHtml, icon, money, openModal, readForm, toast, validateForm } from './ui';
 
 type Row = Record<string, any>;
@@ -79,8 +80,8 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
                   <td class="whitespace-nowrap px-4 py-3 text-right">
                     <div class="inline-flex items-center gap-1">
                       ${opts.extraActions ? opts.extraActions(row, reload) : ''}
-                      <button data-edit="${row.id}" title="Editar" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-700/60 hover:text-white">${icon('edit', 'w-4 h-4')}</button>
-                      <button data-delete="${row.id}" title="Excluir" class="rounded-md p-1.5 text-slate-400 hover:bg-rose-500/15 hover:text-rose-300">${icon('trash', 'w-4 h-4')}</button>
+                      <button data-edit="${row.id}" title="Editar" aria-label="Editar ${esc(String(row[meta.listColumns[0].key] ?? row.id))}" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-700/60 hover:text-white">${icon('edit', 'w-4 h-4')}</button>
+                      <button data-delete="${row.id}" title="Excluir" aria-label="Excluir ${esc(String(row[meta.listColumns[0].key] ?? row.id))}" class="rounded-md p-1.5 text-slate-400 hover:bg-rose-500/15 hover:text-rose-300">${icon('trash', 'w-4 h-4')}</button>
                     </div>
                   </td>
                 </tr>`).join('')
@@ -150,7 +151,7 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
             <button type="button" id="fipe-lookup" class="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
               ${icon('info', 'w-4 h-4')} Consultar FIPE (marca + modelo)
             </button>
-            <span class="text-[11px] text-slate-500">O preenchimento por placa usa API pública quando disponível; caso contrário, modo demonstrativo identificado.</span>
+            <span class="text-[11px] text-slate-500">Consulta feita no cadastro de veículos da oficina. Se a placa não estiver cadastrada, preencha os dados manualmente.</span>
           </div>
           <div id="lookup-info" class="mt-3 hidden rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300"></div>` : ''}
         <div class="mt-6 flex justify-end gap-3 border-t border-slate-800 pt-5">
@@ -162,25 +163,52 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
     const form = modal.element.querySelector<HTMLFormElement>('#crud-form')!;
     modal.element.querySelector('[data-close-form]')?.addEventListener('click', modal.close);
 
+    const validateClient = entity === 'clientes'
+      ? setupClientForm(form, modal.element, row)
+      : undefined;
+
     if (entity === 'veiculos') {
       modal.element.querySelector('#plate-lookup')?.addEventListener('click', async () => {
         const plate = form.querySelector<HTMLInputElement>('[name="placa"]')!.value;
         if (!plate.trim()) return toast('Digite a placa antes de buscar.', 'error');
         const response = await window.oficina.plate(plate);
         if (!response.ok) return toast(response.error!, 'error');
-        const data = response.data!;
-        const set = (key: string, value: unknown) => {
-          const input = form.querySelector<HTMLInputElement>(`[name="${key}"]`);
-          if (input) input.value = String(value ?? '');
-        };
-        set('placa', data.placa); set('marca', data.marca); set('modelo', data.modelo);
-        set('ano_fabricacao', data.anoFabricacao); set('ano_modelo', data.anoModelo);
-        set('cor', data.cor); set('combustivel', data.combustivel); set('uf', data.uf);
-        if (data.chassi) set('chassi', data.chassi);
+        const result = response.data!;
         const info = modal.element.querySelector<HTMLElement>('#lookup-info')!;
-        info.classList.remove('hidden');
-        info.innerHTML = `<strong class="text-slate-100">${data.source === 'publica' ? 'Dados de API pública' : 'Dados demonstrativos (offline)'}</strong> — ${esc(data.note)}`;
-        toast(data.source === 'publica' ? 'Dados da placa obtidos pela API.' : 'Placa preenchida em modo demonstrativo; revise os dados.', data.source === 'publica' ? 'success' : 'info');
+        const showInfo = (message: string) => {
+          info.textContent = message;
+          info.classList.remove('hidden');
+        };
+        info.classList.add('hidden');
+        info.textContent = '';
+        switch (result.status) {
+          case 'invalid':
+            toast(result.message, 'error');
+            return;
+          case 'not_found':
+          case 'unavailable':
+            showInfo(result.message);
+            toast(result.message, 'info');
+            return;
+          case 'found': {
+            const data = result.data;
+            const set = (key: string, value: unknown) => {
+              const input = form.querySelector<HTMLInputElement>(`[name="${key}"]`);
+              if (input) input.value = value === null || value === undefined ? '' : String(value);
+            };
+            set('placa', data.placa);
+            set('marca', data.marca);
+            set('modelo', data.modelo);
+            set('ano_fabricacao', data.anoFabricacao);
+            set('ano_modelo', data.anoModelo);
+            set('cor', data.cor);
+            set('combustivel', data.combustivel);
+            set('chassi', data.chassi);
+            showInfo('Dados obtidos do cadastro de veículos da oficina.');
+            toast('Dados do veículo preenchidos.', 'success');
+            return;
+          }
+        }
       });
 
       modal.element.querySelector('#fipe-lookup')?.addEventListener('click', async () => {
@@ -201,6 +229,7 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (validateClient && !validateClient()) return;
       const data = readForm(form, meta.fields);
       const error = validateForm(meta.fields, data);
       if (error) return toast(error, 'error');

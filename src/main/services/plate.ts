@@ -1,6 +1,18 @@
-import type { PlateData } from '@shared/types';
+import type { LookupResult, PlateData } from '@shared/types';
+import { getDb } from '../database/connection';
 
-const cache = new Map<string, PlateData>();
+/** Colunas lidas de `veiculos` para preencher o cadastro pela placa. */
+interface PlateRow {
+  placa: string;
+  marca: string | null;
+  modelo: string | null;
+  ano_fabricacao: number | null;
+  ano_modelo: number | null;
+  cor: string | null;
+  combustivel: string | null;
+  chassi: string | null;
+  renavam: string | null;
+}
 
 export function normalizePlate(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -10,82 +22,59 @@ export function isValidPlate(value: string): boolean {
   return /^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$/.test(normalizePlate(value));
 }
 
-const CATALOG = [
-  { marca: 'Volkswagen', modelo: 'Gol 1.0', ano: 2020, cor: 'Prata', combustivel: 'Flex' },
-  { marca: 'Fiat', modelo: 'Argo 1.4', ano: 2021, cor: 'Vermelho', combustivel: 'Flex' },
-  { marca: 'Toyota', modelo: 'Corolla XEi 2.0', ano: 2019, cor: 'Prata', combustivel: 'Flex' },
-  { marca: 'Honda', modelo: 'Civic EXL 1.8', ano: 2018, cor: 'Preto', combustivel: 'Flex' },
-  { marca: 'Chevrolet', modelo: 'Onix Plus 1.0', ano: 2022, cor: 'Branco', combustivel: 'Flex' },
-  { marca: 'Hyundai', modelo: 'HB20 1.0', ano: 2020, cor: 'Azul', combustivel: 'Flex' },
-  { marca: 'Renault', modelo: 'Kwid 1.0', ano: 2021, cor: 'Laranja', combustivel: 'Flex' },
-  { marca: 'Ford', modelo: 'Ka 1.5', ano: 2019, cor: 'Cinza', combustivel: 'Flex' },
-  { marca: 'Yamaha', modelo: 'Factor 150', ano: 2021, cor: 'Preto', combustivel: 'Gasolina' },
-  { marca: 'Mercedes-Benz', modelo: 'Sprinter 415', ano: 2018, cor: 'Branco', combustivel: 'Diesel' },
-];
-
-function demoData(placa: string): PlateData {
-  const hash = [...placa].reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 7);
-  const item = CATALOG[hash % CATALOG.length];
-  const ufList = ['SP', 'RJ', 'MG', 'PR', 'SC', 'RS', 'BA', 'PE'];
-  return {
-    placa,
-    marca: item.marca,
-    modelo: item.modelo,
-    anoFabricacao: item.ano,
-    anoModelo: item.ano + 1,
-    cor: item.cor,
-    combustivel: item.combustivel,
-    municipio: 'São Paulo',
-    uf: ufList[hash % ufList.length],
-    chassi: null,
-    source: 'demonstrativa',
-    note: 'Dados demonstrativos (offline). APIs públicas de placa exigem chave; confira e ajuste os campos antes de salvar.',
-  };
+function nullableText(value: unknown): string | null {
+  return value === null || value === undefined || value === '' ? null : String(value).trim() || null;
 }
 
-/** Tenta um provedor público sem chave; se não houver resposta, usa o catálogo demonstrativo. */
-export async function lookupPlate(plate: string): Promise<PlateData> {
+function nullableYear(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const year = Number(value);
+  return Number.isFinite(year) ? year : null;
+}
+
+/** Consulta o cadastro local de veículos pela placa normalizada, sem acessar a rede. */
+export async function lookupPlate(plate: string): Promise<LookupResult<PlateData>> {
   const placa = normalizePlate(plate);
-  if (!isValidPlate(placa)) throw new Error('Placa inválida. Use ABC1234 ou ABC1D23.');
-
-  const hit = cache.get(placa);
-  if (hit) return hit;
-
-  let result: PlateData | null = null;
-  try {
-    // Endpoint público de teste da WebXcar (sem chave). Normalmente responde 401;
-    // nesse caso o sistema recorre ao modo demonstrativo e avisa o usuário.
-    const response = await fetch(`https://api.webxcar.com.br/placas/${placa}/basica`, {
-      headers: { Accept: 'application/json', 'User-Agent': 'OficinaDesktop/1.0' },
-      signal: AbortSignal.timeout(3000),
-    });
-    if (response.ok) {
-      const json: any = await response.json();
-      const dados = json?.data ?? json?.veiculo ?? json;
-      const marca = dados?.marca?.nome ?? dados?.marca;
-      const modelo = dados?.modelo?.nome ?? dados?.modelo;
-      if (marca && modelo) {
-        result = {
-          placa,
-          marca: String(marca),
-          modelo: String(modelo),
-          anoFabricacao: Number(dados.ano ?? dados.anoFabricacao) || null,
-          anoModelo: Number(dados.anoModelo ?? dados.ano) || null,
-          cor: dados.cor?.nome ?? dados.cor ?? null,
-          combustivel: dados.combustivel?.nome ?? dados.combustivel ?? null,
-          municipio: dados.municipio ?? null,
-          uf: dados.uf ?? null,
-          chassi: dados.chassi ?? null,
-          source: 'publica',
-          note: 'Dados obtidos de API pública.',
-        };
-      }
-    }
-  } catch {
-    // provedor indisponível -> fallback
+  if (!isValidPlate(placa)) {
+    return { status: 'invalid', message: 'Placa inválida. Use ABC1234 ou ABC1D23.' };
   }
 
-  result ??= demoData(placa);
-  cache.set(placa, result);
-  return result;
+  let row: PlateRow | undefined;
+  try {
+    // A normalização no lado do banco aceita placa gravada com hífen/espaço ou em minúsculas.
+    row = (await getDb().prepare(
+      `SELECT placa, marca, modelo, ano_fabricacao, ano_modelo, cor, combustivel, chassi, renavam
+         FROM veiculos
+        WHERE UPPER(REPLACE(REPLACE(placa, '-', ''), ' ', '')) = ?
+        LIMIT 1`
+    ).get(placa)) as PlateRow | undefined;
+  } catch (error) {
+    console.error('[plate] falha ao consultar veiculos:', error);
+    return {
+      status: 'unavailable',
+      message: 'Não foi possível consultar o cadastro de veículos. Tente novamente.',
+    };
+  }
+
+  if (!row) {
+    return {
+      status: 'not_found',
+      message: 'Placa não encontrada no cadastro de veículos. Preencha os dados manualmente.',
+    };
+  }
+
+  return {
+    status: 'found',
+    data: {
+      placa,
+      marca: nullableText(row.marca),
+      modelo: nullableText(row.modelo),
+      anoFabricacao: nullableYear(row.ano_fabricacao),
+      anoModelo: nullableYear(row.ano_modelo),
+      cor: nullableText(row.cor),
+      combustivel: nullableText(row.combustivel),
+      chassi: nullableText(row.chassi),
+      renavam: nullableText(row.renavam),
+    },
+  };
 }

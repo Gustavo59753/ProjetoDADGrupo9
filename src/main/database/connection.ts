@@ -1,5 +1,6 @@
 import { readDbConfig } from '../config';
 import schemaSql from './schema.sql?raw';
+import { ensureClientesColumns } from './migrations';
 import { Db } from './mysql';
 
 let database: Db | null = null;
@@ -12,6 +13,7 @@ export async function initDb(): Promise<void> {
   try {
     const db = await Db.connect(config);
     await db.exec(schemaSql);
+    await ensureClientesColumns(db);
     database = db;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);

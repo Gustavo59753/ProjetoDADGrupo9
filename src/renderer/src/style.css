@@ -28,6 +28,27 @@ body {
 
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
 
+/* Toasts precisam ficar acima do app: #app ocupa 100% da altura e o body não rola. */
+#toast-root {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(24rem, calc(100vw - 3rem));
+  pointer-events: none;
+}
+
+#toast-root > * { pointer-events: auto; }
+
+/* Campos bloqueados pela validação (CEP/CNPJ) recebem destaque visual além do aria-invalid. */
+[aria-invalid="true"], [aria-invalid="true"]:focus {
+  border-color: #fb7185;
+  box-shadow: 0 0 0 2px rgb(251 113 133 / 0.2);
+}
+
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }

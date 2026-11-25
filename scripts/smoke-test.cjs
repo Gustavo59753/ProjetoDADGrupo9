@@ -138,13 +138,26 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
   console.log('\n[2] Schema criado (8 tabelas)');
   const tables = rawDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
   assert(tables.length === 8, `8 tabelas criadas (${tables.map((t) => t.name).join(', ')})`);
+  const clienteColumns = rawDb.prepare('PRAGMA table_info(clientes)').all().map((c) => c.name);
+  assert(
+    ['tipo_pessoa', 'cep', 'endereco', 'numero', 'cidade', 'uf'].every((c) => clienteColumns.includes(c)),
+    'clientes possui tipo_pessoa, CEP, endereço, número, cidade e UF'
+  );
 
   console.log('\n[3] CRUD das 8 entidades');
   const cliente = await call('db:create', 'clientes', {
-    nome: 'Cliente Teste', telefone: '11999998888', cpf_cnpj: '11122233344', cidade: 'São Paulo',
+    nome: 'Cliente Teste', telefone: '11999998888', cpf_cnpj: '52998224725', cidade: 'São Paulo',
+    tipo_pessoa: 'PF', cep: '01310-100', endereco: 'Av. Paulista, Bela Vista', numero: '1000',
   });
   assert(cliente.id > 0, 'create clientes');
-  assert((await call('db:get', 'clientes', cliente.id)).nome === 'Cliente Teste', 'get clientes');
+  const clienteSalvo = await call('db:get', 'clientes', cliente.id);
+  assert(clienteSalvo.nome === 'Cliente Teste', 'get clientes');
+  assert(
+    clienteSalvo.tipo_pessoa === 'PF' && clienteSalvo.cep === '01310-100' &&
+    clienteSalvo.endereco === 'Av. Paulista, Bela Vista' && clienteSalvo.numero === '1000',
+    'campos tipo_pessoa/CEP/logradouro/número persistidos'
+  );
+  assert((await call('db:list', 'clientes', '01310')).length === 1, 'busca por CEP em clientes');
   assert((await call('db:update', 'clientes', cliente.id, { nome: 'Cliente Teste Editado' })).nome === 'Cliente Teste Editado', 'update clientes');
   assert((await call('db:list', 'clientes', 'Editado')).length === 1, 'busca textual em clientes');
   assert((await call('db:options', 'clientes', 'nome')).some((o) => o.id === cliente.id), 'options clientes');
@@ -190,6 +203,77 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
   assert(notificacao.ordem_numero === 'OS-TESTE', 'create/get notificacoes vinculada à OS');
   assert((await call('db:update', 'notificacoes', notify.notificationId, { status: 'ENVIADO' })).status === 'ENVIADO', 'update notificacoes');
 
+  console.log('\n[3.1] Validação local de CPF/CNPJ/CEP (sem rede)');
+  const invalidCpf = await rawCall('db:create', 'clientes', {
+    nome: 'CPF Inválido', telefone: '11999998888', tipo_pessoa: 'PF', cpf_cnpj: '11122233344',
+  });
+  assert(invalidCpf.ok === false && /CPF/.test(invalidCpf.error), 'CPF inválido bloqueia db:create');
+
+  const invalidCep = await rawCall('db:create', 'clientes', {
+    nome: 'CEP Inválido', telefone: '11999998888', tipo_pessoa: 'PF', cep: '1234',
+  });
+  assert(invalidCep.ok === false && /CEP/.test(invalidCep.error), 'CEP inválido bloqueia db:create');
+
+  const invalidCnpjCreate = await rawCall('db:create', 'clientes', {
+    nome: 'CNPJ Inválido', telefone: '11999998888', tipo_pessoa: 'PJ', cpf_cnpj: '11111111111111',
+  });
+  assert(invalidCnpjCreate.ok === false && /CNPJ/.test(invalidCnpjCreate.error), 'CNPJ inválido bloqueia db:create');
+
+  const originalFetch = global.fetch;
+  let fetchCalls = 0;
+  let lastLookupUrl = '';
+  global.fetch = async (url) => {
+    fetchCalls += 1;
+    lastLookupUrl = String(url);
+    if (lastLookupUrl.startsWith('https://minhareceita.org/')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          cnpj: '11444777000161',
+          razao_social: 'Empresa Teste LTDA',
+          nome_fantasia: '',
+          logradouro: 'Av. Paulista',
+          numero: '100',
+          bairro: 'Bela Vista',
+          municipio: 'São Paulo',
+          uf: 'SP',
+          cep: '01310-100',
+        }),
+      };
+    }
+    throw new Error('requisição de rede inesperada');
+  };
+  try {
+    const cepResult = await rawCall('api:cep', '1234');
+    assert(
+      cepResult.ok === true && cepResult.data.status === 'invalid' && /CEP/.test(cepResult.data.message),
+      'api:cep com CEP inválido retorna status invalid'
+    );
+
+    const cnpjResult = await rawCall('api:cnpj', '11111111111111');
+    assert(
+      cnpjResult.ok === true && cnpjResult.data.status === 'invalid' && /CNPJ/.test(cnpjResult.data.message),
+      'api:cnpj com CNPJ inválido retorna status invalid'
+    );
+    assert(fetchCalls === 0, 'validações locais não fizeram chamadas de rede');
+
+    const cnpjFound = await rawCall('api:cnpj', '11.444.777/0001-61');
+    assert(
+      cnpjFound.ok === true && cnpjFound.data.status === 'found',
+      'CNPJ válido passa na validação dos dígitos verificadores'
+    );
+    assert(
+      lastLookupUrl === 'https://minhareceita.org/11444777000161',
+      'CNPJ é consultado em https://minhareceita.org/{cnpj}'
+    );
+    assert(cnpjFound.data.data.cidade === 'São Paulo', 'municipio da Minha Receita preenche cidade');
+    assert(cnpjFound.data.data.cep === '01310100', 'CEP da Minha Receita é normalizado');
+    assert(fetchCalls === 1, 'somente a consulta de CNPJ válido fez requisição');
+  } finally {
+    global.fetch = originalFetch;
+  }
+
   console.log('\n[4] Regras de estoque e total da OS');
   assert((await call('db:get', 'pecas', peca.id)).quantidade === 9, 'baixa de estoque ao adicionar item');
   assert((await call('db:get', 'ordens_servico', os.id)).valor_total === 150, 'total recalculado (100 mão de obra + 50 peça)');
@@ -229,8 +313,43 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
     const fipe = await call('api:fipe', 'honda', 'civic');
     assert(fipe.length > 0, `FIPE retornou ${fipe.length} veículo(s)`);
   } catch (error) { console.log('  aviso - FIPE indisponível: ' + error.message); }
-  const plate = await call('api:plate', 'TST1A23');
-  assert(Boolean(plate.marca && plate.modelo), 'consulta de placa retornou dados');
+  console.log('\n[7.1] Consulta de placa no cadastro de veículos (sem rede)');
+  const fetchBeforePlate = global.fetch;
+  let plateFetchCalls = 0;
+  global.fetch = async () => {
+    plateFetchCalls += 1;
+    throw new Error('requisição de rede inesperada na consulta de placa');
+  };
+  try {
+    const plate = await call('db:plate', 'TST1A23');
+    assert(
+      plate.status === 'found' && plate.data.marca === 'Ford' && plate.data.modelo === 'Ka',
+      'db:plate encontrou o veículo cadastrado com marca/modelo corretos'
+    );
+    assert(
+      plate.data.anoModelo === 2022 && plate.data.cor === 'Prata',
+      'db:plate mapeou anoModelo e cor do veículo'
+    );
+
+    const plateNormalized = await call('db:plate', 'tst-1a23');
+    assert(plateNormalized.status === 'found', 'db:plate normaliza placa com hífen e minúsculas');
+
+    const missingPlate = await rawCall('db:plate', 'ZZZ9999');
+    assert(
+      missingPlate.ok === true && missingPlate.data.status === 'not_found',
+      'db:plate com placa inexistente retorna not_found'
+    );
+
+    const invalidPlate = await rawCall('db:plate', 'ABC');
+    assert(
+      invalidPlate.ok === true && invalidPlate.data.status === 'invalid',
+      'db:plate com placa inválida retorna invalid'
+    );
+
+    assert(plateFetchCalls === 0, 'consulta de placa não fez nenhuma requisição de rede');
+  } finally {
+    global.fetch = fetchBeforePlate;
+  }
 
   console.log('\n[8] Exclusões');
   await call('db:delete', 'notificacoes', notify.notificationId);
