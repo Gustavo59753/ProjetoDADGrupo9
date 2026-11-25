@@ -1,19 +1,30 @@
 import { ipcMain, shell, clipboard } from 'electron';
 import { ENTITIES } from '@shared/schema';
-import type { EntityName } from '@shared/types';
+import type { EntityName, NotificationChannel, NotificationResult } from '@shared/types';
+import { normalizeDestination } from '@shared/validation';
 import * as repo from './database/repository';
 import * as ordens from './database/ordens';
 import { getDollarQuote } from './services/exchange';
 import { lookupPlate } from './services/plate';
 import { searchFipe } from './services/fipe';
 import { notifyReady } from './services/notification';
+import { deliverNotification } from './services/notification-delivery';
 import { lookupCep } from './services/cep';
 import { lookupCnpj } from './services/cnpj';
 import { validateClientInput } from './services/client-validation';
+import { validateNotificationInput } from './services/notification-validation';
+import { validateEmailInput } from './services/email-validation';
 
 function assertEntity(value: string): EntityName {
   if (!(value in ENTITIES)) throw new Error(`Entidade desconhecida: ${value}`);
   return value as EntityName;
+}
+
+/** Aplica a validação de e-mail somente às entidades que possuem esse campo. */
+function validateEntityEmail(name: EntityName, input: Record<string, unknown>): void {
+  if (!input || !ENTITIES[name].fields.some((field) => field.key === 'email')) return;
+  if (input.email === undefined) return;
+  validateEmailInput(input);
 }
 
 /** Envolve todos os handlers para que o renderer receba { ok, data, error }. */
@@ -33,7 +44,14 @@ export function registerIpc(): void {
 
   handle('db:create', async (entity: string, input: Record<string, unknown>) => {
     const name = assertEntity(entity);
+    validateEntityEmail(name, input);
+    let payload = input;
     if (name === 'clientes') validateClientInput(input);
+    if (name === 'notificacoes') {
+      validateNotificationInput(input);
+      const canal = input.canal as NotificationChannel;
+      payload = { ...input, destino: normalizeDestination(canal, String(input.destino)) };
+    }
     if (name === 'itens_ordem') {
       const itemId = await ordens.addItem(Number(input.ordem_servico_id), {
         peca_id: Number(input.peca_id),
@@ -42,7 +60,7 @@ export function registerIpc(): void {
       });
       return repo.get('itens_ordem', itemId);
     }
-    const row = await repo.create(name, input);
+    const row = await repo.create(name, payload);
     if (name === 'ordens_servico') {
       await ordens.refreshCosts(Number(row.id));
       return repo.get(name, Number(row.id));
@@ -52,8 +70,19 @@ export function registerIpc(): void {
 
   handle('db:update', async (entity: string, id: number, input: Record<string, unknown>) => {
     const name = assertEntity(entity);
-    if (name === 'clientes') validateClientInput(input);
+    validateEntityEmail(name, input);
     const recordId = Number(id);
+    let payload = input;
+    if (name === 'clientes') validateClientInput(input);
+    if (name === 'notificacoes') {
+      // Updates parciais (ex.: apenas status) são validados contra o registro salvo.
+      const current = await repo.get(name, recordId);
+      if (input.destino !== undefined) {
+        const canal = (input.canal ?? current?.canal) as NotificationChannel;
+        payload = { ...input, destino: normalizeDestination(canal, String(input.destino)) };
+      }
+      validateNotificationInput({ ...current, ...payload });
+    }
     if (name === 'itens_ordem') {
       await ordens.updateItem(recordId, {
         peca_id: Number(input.peca_id),
@@ -62,7 +91,7 @@ export function registerIpc(): void {
       });
       return repo.get('itens_ordem', recordId);
     }
-    const row = await repo.update(name, recordId, input);
+    const row = await repo.update(name, recordId, payload);
     if (name === 'ordens_servico') {
       await ordens.refreshCosts(recordId);
       return repo.get(name, recordId);
@@ -94,6 +123,40 @@ export function registerIpc(): void {
     const result = await notifyReady(Number(osId), message);
     await shell.openExternal(result.link);
     return result;
+  });
+
+  handle('notification:create', async (input: Record<string, unknown>) => {
+    validateNotificationInput(input);
+    const canal = String(input.canal) as NotificationChannel;
+    const destino = normalizeDestination(canal, String(input.destino));
+    const mensagem = String(input.mensagem);
+
+    const row = await repo.create('notificacoes', {
+      ...input,
+      canal,
+      destino,
+      mensagem,
+      status: 'PENDENTE',
+      erro: null,
+    });
+    const notificationId = Number(row.id);
+
+    try {
+      const delivery = await deliverNotification(canal, destino, mensagem);
+      await repo.update('notificacoes', notificationId, { status: delivery.status });
+      return {
+        notificationId,
+        message: mensagem,
+        link: delivery.link,
+        status: delivery.status,
+      } satisfies NotificationResult;
+    } catch {
+      await repo.update('notificacoes', notificationId, {
+        status: 'FALHA',
+        erro: 'Não foi possível abrir o aplicativo nativo.',
+      });
+      throw new Error('Aviso salvo, mas o app não abriu. Confira o aviso na lista antes de tentar de novo.');
+    }
   });
 
   handle('api:dollar', (force?: boolean) => getDollarQuote(Boolean(force)));

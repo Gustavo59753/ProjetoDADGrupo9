@@ -1,6 +1,6 @@
 import { readDbConfig } from '../config';
 import schemaSql from './schema.sql?raw';
-import { ensureClientesColumns } from './migrations';
+import { ensureClientesColumns, ensureNotificacoesStatus } from './migrations';
 import { Db } from './mysql';
 
 let database: Db | null = null;
@@ -14,12 +14,13 @@ export async function initDb(): Promise<void> {
     const db = await Db.connect(config);
     await db.exec(schemaSql);
     await ensureClientesColumns(db);
+    await ensureNotificacoesStatus(db);
     database = db;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Não foi possível conectar ao banco ${config.database} em ${config.host}:${config.port} ` +
-      `como ${config.user}. Confira o .env e se o MySQL/MariaDB está ativo. Detalhe: ${detail}`
+      `Não foi possível inicializar o banco ${config.database} em ${config.host}:${config.port} ` +
+      `como ${config.user}. Confira o .env, se o MySQL/MariaDB está ativo e se o schema foi aplicado. Detalhe: ${detail}`
     );
   }
 }

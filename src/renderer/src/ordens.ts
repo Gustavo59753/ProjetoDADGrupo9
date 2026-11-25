@@ -1,13 +1,13 @@
 import type { DollarQuote } from '@shared/types';
 import { renderCrud } from './crud';
-import { badge, dateFmt, esc, icon, money, openModal, toast } from './ui';
+import { badge, dateFmt, escapeHTML, icon, money, openModal, toast } from './ui';
 
 type Row = Record<string, any>;
 
 export function renderOrdens(mount: HTMLElement): Promise<void> {
   return renderCrud('ordens_servico', mount, {
     extraActions: (row) => `
-      <button data-extra="open" data-id="${row.id}" title="Abrir ordem" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/15">
+      <button data-extra="open" data-id="${escapeHTML(row.id)}" title="Abrir ordem" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-brand-300 hover:bg-brand-500/15">
         ${icon('clipboard', 'w-4 h-4')} Abrir
       </button>`,
     onExtraAction: (_action, row, reload) => openOsDetail(Number(row.id), reload),
@@ -38,11 +38,11 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div class="flex items-center gap-3">
-            <span class="text-2xl font-semibold text-white">${esc(os.numero)}</span>
+            <span class="text-2xl font-semibold text-white">${escapeHTML(os.numero)}</span>
             ${badge(String(os.status))}
           </div>
-          <p class="mt-1.5 text-sm text-slate-400">${esc(os.veiculo_info)} · ${esc(os.cliente_nome)} · Responsável: ${esc(os.mecanico_nome ?? '—')}</p>
-          <p class="mt-1 text-xs text-slate-500">Entrada: ${dateFmt(os.data_entrada)} · Saída/previsão: ${dateFmt(os.data_saida)} · Cotação USD: ${os.cotacao_dolar ? money(os.cotacao_dolar) : 'não registrada'}</p>
+          <p class="mt-1.5 text-sm text-slate-400">${escapeHTML(os.veiculo_info)} · ${escapeHTML(os.cliente_nome)} · Responsável: ${escapeHTML(os.mecanico_nome ?? '—')}</p>
+          <p class="mt-1 text-xs text-slate-500">Entrada: ${escapeHTML(dateFmt(os.data_entrada))} · Saída/previsão: ${escapeHTML(dateFmt(os.data_saida))} · Cotação USD: ${os.cotacao_dolar ? escapeHTML(money(os.cotacao_dolar)) : 'não registrada'}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           ${os.status !== 'PRONTA' && os.status !== 'ENTREGUE' ? '<button id="os-ready" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20">Marcar como pronta</button>' : ''}
@@ -62,13 +62,13 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
       <div class="mt-5 grid gap-5 lg:grid-cols-2">
         <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
           <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Problema relatado</h4>
-          <p class="text-sm leading-6 text-slate-300">${esc(os.descricao_problema ?? '—')}</p>
+          <p class="text-sm leading-6 text-slate-300">${escapeHTML(os.descricao_problema ?? '—')}</p>
           <h4 class="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Serviço executado</h4>
-          <p class="text-sm leading-6 text-slate-300">${esc(os.descricao_servico ?? '—')}</p>
+          <p class="text-sm leading-6 text-slate-300">${escapeHTML(os.descricao_servico ?? '—')}</p>
         </div>
         <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
           <h4 class="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Cotação do dólar para peças importadas</h4>
-          <p class="text-sm text-slate-300">${dollar ? `<span class="font-semibold text-white">${money(dollar.ask)}</span> <span class="text-slate-500">(${esc(dollar.source)} · ${esc(dollar.fetchedAt)})</span>` : 'Indisponível no momento'}</p>
+          <p class="text-sm text-slate-300">${dollar ? `<span class="font-semibold text-white">${escapeHTML(money(dollar.ask))}</span> <span class="text-slate-500">(${escapeHTML(dollar.source)} · ${escapeHTML(dollar.fetchedAt)})</span>` : 'Indisponível no momento'}</p>
           <button id="os-dollar" class="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800">
             ${icon('refresh', 'w-4 h-4')} Registrar cotação nesta OS
           </button>
@@ -79,7 +79,7 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
       <div class="mt-6">
         <div class="flex items-center justify-between">
           <h4 class="text-sm font-semibold text-white">Peças utilizadas</h4>
-          <span class="text-xs text-slate-500">${items.length} item(ns)</span>
+          <span class="text-xs text-slate-500">${escapeHTML(items.length)} item(ns)</span>
         </div>
         <div class="mt-3 overflow-hidden rounded-xl border border-slate-800">
           <table class="w-full text-left text-sm">
@@ -89,11 +89,11 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
             <tbody class="divide-y divide-slate-800">
               ${items.length ? items.map((i) => `
                 <tr class="hover:bg-slate-800/30">
-                  <td class="px-3 py-2.5 text-slate-200">${esc(i.peca_descricao)} <span class="text-slate-500">· ${esc(i.peca_codigo)}</span></td>
-                  <td class="px-3 py-2.5 text-slate-300">${i.quantidade}</td>
-                  <td class="px-3 py-2.5 text-slate-300">${money(i.preco_unitario)}</td>
-                  <td class="px-3 py-2.5 text-emerald-300">${money(i.subtotal)}</td>
-                  <td class="px-3 py-2.5 text-right"><button data-remove-item="${i.id}" class="rounded p-1 text-slate-500 hover:bg-rose-500/15 hover:text-rose-300">${icon('trash', 'w-4 h-4')}</button></td>
+                  <td class="px-3 py-2.5 text-slate-200">${escapeHTML(i.peca_descricao)} <span class="text-slate-500">· ${escapeHTML(i.peca_codigo)}</span></td>
+                  <td class="px-3 py-2.5 text-slate-300">${escapeHTML(i.quantidade)}</td>
+                  <td class="px-3 py-2.5 text-slate-300">${escapeHTML(money(i.preco_unitario))}</td>
+                  <td class="px-3 py-2.5 text-emerald-300">${escapeHTML(money(i.subtotal))}</td>
+                  <td class="px-3 py-2.5 text-right"><button data-remove-item="${escapeHTML(i.id)}" class="rounded p-1 text-slate-500 hover:bg-rose-500/15 hover:text-rose-300">${icon('trash', 'w-4 h-4')}</button></td>
                 </tr>`).join('')
                 : '<tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">Nenhuma peça adicionada.</td></tr>'}
             </tbody>
@@ -103,7 +103,7 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
         <form id="os-add-item" class="mt-4 grid gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-4 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end">
           <label class="text-xs text-slate-400">Peça
             <select name="peca_id" class="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-brand-400">
-              ${pecas.map((p) => `<option value="${p.id}">${esc(p.descricao)} · estoque ${p.quantidade} · ${money(p.preco_venda)}</option>`).join('')}
+              ${pecas.map((p) => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.descricao)} · estoque ${escapeHTML(p.quantidade)} · ${escapeHTML(money(p.preco_venda))}</option>`).join('')}
             </select>
           </label>
           <label class="text-xs text-slate-400">Quantidade
@@ -166,7 +166,7 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
           <span class="text-xs font-semibold uppercase tracking-wider text-emerald-300">Mensagem para o cliente</span>
           <button id="copy-msg" class="inline-flex items-center gap-1.5 rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800">${icon('copy', 'w-3.5 h-3.5')} Copiar</button>
         </div>
-        <p class="mt-2 text-sm leading-6 text-slate-300">${esc(result.message)}</p>`;
+        <p class="mt-2 text-sm leading-6 text-slate-300">${escapeHTML(result.message)}</p>`;
       body.appendChild(box);
       box.querySelector('#copy-msg')?.addEventListener('click', async () => {
         await window.oficina.clipboard(result.message);
@@ -181,7 +181,7 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
 
 function stat(label: string, value: string, ico: string, highlight = false): string {
   return `<div class="rounded-xl border ${highlight ? 'border-brand-500/40 bg-brand-500/10' : 'border-slate-800 bg-slate-950/40'} p-4">
-    <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-slate-500">${icon(ico, 'w-4 h-4')} ${esc(label)}</div>
-    <div class="mt-2 text-lg font-semibold ${highlight ? 'text-brand-100' : 'text-slate-100'}">${esc(value)}</div>
+    <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-slate-500">${icon(ico, 'w-4 h-4')} ${escapeHTML(label)}</div>
+    <div class="mt-2 text-lg font-semibold ${highlight ? 'text-brand-100' : 'text-slate-100'}">${escapeHTML(value)}</div>
   </div>`;
 }

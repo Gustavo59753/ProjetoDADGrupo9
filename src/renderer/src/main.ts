@@ -5,7 +5,7 @@ import { renderCrud } from './crud';
 import { renderDashboard } from './dashboard';
 import { renderIntegrations } from './integrations';
 import { renderOrdens } from './ordens';
-import { esc, icon } from './ui';
+import { escapeHTML, icon } from './ui';
 
 type Route = 'dashboard' | 'integracoes' | EntityName;
 
@@ -51,11 +51,11 @@ app.innerHTML = `
       <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         ${NAV.map((group) => `
           <div>
-            <p class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">${esc(group.group)}</p>
+            <p class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">${escapeHTML(group.group)}</p>
             <div class="space-y-1">
               ${group.items.map((item) => `
-                <button data-route="${item.route}" class="nav-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-100">
-                  ${icon(item.icon, 'w-[18px] h-[18px]')}<span>${esc(item.label)}</span>
+                <button data-route="${escapeHTML(item.route)}" class="nav-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-100">
+                  ${icon(item.icon, 'w-[18px] h-[18px]')}<span>${escapeHTML(item.label)}</span>
                 </button>`).join('')}
             </div>
           </div>`).join('')}

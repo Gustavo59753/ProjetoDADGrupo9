@@ -1,4 +1,6 @@
 import type { PersonType } from '@shared/types';
+import { maskPhone } from '@shared/validation';
+import { bindInputMask, bindPhoneMask } from './phone';
 import { toast } from './ui';
 
 type Row = Record<string, any>;
@@ -36,44 +38,6 @@ function maskDocument(value: string, person: PersonType): string {
   if (d.length > 8) out += `/${d.slice(8, 12)}`;
   if (d.length > 12) out += `-${d.slice(12, 14)}`;
   return out;
-}
-
-/** DDD + número (10 dígitos fixos ou 11 dígitos móveis), compatível com o aviso wa.me. */
-function maskPhone(value: string): string {
-  const d = digits(value).slice(0, 11);
-  if (!d) return '';
-  if (d.length <= 2) return `(${d}`;
-  const ddd = d.slice(0, 2);
-  const rest = d.slice(2);
-  if (d.length > 10) return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5, 10)}`;
-  if (rest.length <= 4) return `(${ddd}) ${rest}`;
-  return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4, 8)}`;
-}
-
-/** Aplica a máscara mantendo o caret após a mesma quantidade de dígitos digitados. */
-function bindMask(input: HTMLInputElement, format: (value: string) => string, after?: () => void): void {
-  input.addEventListener('input', () => {
-    const caret = input.selectionStart ?? input.value.length;
-    const digitsBeforeCaret = digits(input.value.slice(0, caret)).length;
-    const formatted = format(input.value);
-    if (formatted !== input.value) {
-      input.value = formatted;
-      let seen = 0;
-      let position = formatted.length;
-      for (let i = 0; i < formatted.length; i++) {
-        if (/\d/.test(formatted[i])) {
-          seen++;
-          if (seen === digitsBeforeCaret) {
-            position = i + 1;
-            break;
-          }
-        }
-      }
-      if (digitsBeforeCaret === 0 && caret === 0) position = 0;
-      input.setSelectionRange(position, position);
-    }
-    after?.();
-  });
 }
 
 /**
@@ -332,7 +296,7 @@ export function setupClientForm(form: HTMLFormElement, root: HTMLElement, row?: 
   });
 
   if (cepInput) {
-    bindMask(cepInput, maskCep, () => {
+    bindInputMask(cepInput, maskCep, () => {
       unblock('cep', cepInput);
       clearInfoAlert();
       cepSeq++;
@@ -349,7 +313,7 @@ export function setupClientForm(form: HTMLFormElement, root: HTMLElement, row?: 
   }
 
   if (docInput) {
-    bindMask(docInput, (value) => maskDocument(value, personType()), () => {
+    bindInputMask(docInput, (value) => maskDocument(value, personType()), () => {
       unblock('documento', docInput);
       clearInfoAlert();
       cnpjSeq++;
@@ -368,7 +332,8 @@ export function setupClientForm(form: HTMLFormElement, root: HTMLElement, row?: 
     });
   }
 
-  if (phoneInput) bindMask(phoneInput, maskPhone);
+  // Listener único: o CRUD já aplica bindPhoneMask ao campo; WeakSet evita duplicar.
+  if (phoneInput) bindPhoneMask(phoneInput);
 
   /** Validação local de formato/comprimento; a checksum é responsabilidade do backend. */
   return function validateClientForm(): boolean {

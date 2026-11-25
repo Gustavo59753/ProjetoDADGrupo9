@@ -122,6 +122,9 @@ export interface FipeVehicle {
   referencia: string;
 }
 
+/** Canais suportados no cadastro de avisos (todos sem API paga). */
+export type NotificationChannel = 'WhatsApp' | 'SMS' | 'E-mail';
+
 export interface NotificationResult {
   notificationId: number;
   message: string;

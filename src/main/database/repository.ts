@@ -46,8 +46,22 @@ export async function list(entity: EntityName, search = ''): Promise<Row[]> {
       const alias = expr.match(/AS\s+(\w+)\s*$/i)?.[1];
       if (alias) cols.push(alias);
     }
-    where = ` WHERE (${cols.map((c) => `COALESCE(${c}, '') LIKE ?`).join(' OR ')})`;
+    const criteria = cols.map((c) => `COALESCE(${c}, '') LIKE ?`);
     cols.forEach(() => params.push(`%${term}%`));
+
+    if (entity === 'notificacoes' && /^\d+$/.test(term)) {
+      // Avisos gravam o telefone mascarado: compara sem ( ) espaço e - (válido em MySQL e SQLite).
+      const unmasked = `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(q.destino, ''), '(', ''), ')', ''), ' ', ''), '-', '')`;
+      criteria.push(`${unmasked} LIKE ?`);
+      params.push(`%${term}%`);
+      if (/^55\d{10,11}$/.test(term)) {
+        // Termo com DDI 55 também encontra o número salvo sem o prefixo.
+        criteria.push(`${unmasked} LIKE ?`);
+        params.push(`%${term.slice(2)}%`);
+      }
+    }
+
+    where = ` WHERE (${criteria.join(' OR ')})`;
   }
 
   // A subquery externa é necessária porque o MySQL não aceita aliases do SELECT no WHERE.

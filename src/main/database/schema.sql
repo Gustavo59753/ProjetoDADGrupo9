@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS notificacoes (
   CONSTRAINT fk_notificacoes_os FOREIGN KEY (ordem_servico_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
   CONSTRAINT fk_notificacoes_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL,
   CONSTRAINT chk_notificacoes_canal CHECK (canal IN ('WhatsApp', 'SMS', 'E-mail')),
-  CONSTRAINT chk_notificacoes_status CHECK (status IN ('PENDENTE', 'ABERTO_NO_WHATSAPP', 'ENVIADO', 'FALHA'))
+  CONSTRAINT chk_notificacoes_status CHECK (status IN ('PENDENTE', 'ABERTO_NO_WHATSAPP', 'ABERTO_NO_APP', 'ENVIADO', 'FALHA'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Índices das chaves estrangeiras

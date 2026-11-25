@@ -36,6 +36,7 @@ const api = {
   setDollar: (osId: number, rate: number) => invoke<null>('os:setDollar', osId, rate),
   refreshCosts: (osId: number) => invoke<null>('os:refreshCosts', osId),
   notify: (osId: number, message?: string) => invoke<NotificationResult>('os:notify', osId, message),
+  createNotification: (data: Record<string, unknown>) => invoke<NotificationResult>('notification:create', data),
 
   dollar: (force = false) => invoke<DollarQuote>('api:dollar', force),
   plate: (plate: string) => invoke<LookupResult<PlateData>>('db:plate', plate),

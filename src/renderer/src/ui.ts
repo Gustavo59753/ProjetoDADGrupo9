@@ -1,11 +1,14 @@
 import { STATUS_COLORS } from '@shared/schema';
 import type { FieldDef } from '@shared/types';
 
-export function esc(value: unknown): string {
+export function escapeHTML(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
+
+/** Alias temporário para compatibilidade; use `escapeHTML` no código novo. */
+export const esc = escapeHTML;
 
 export function money(value: unknown): string {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -54,7 +57,7 @@ export function icon(name: string, cls = 'w-5 h-5'): string {
 
 export function badge(text: string): string {
   const color = STATUS_COLORS[text] ?? 'bg-slate-700/40 text-slate-300 ring-slate-600/40';
-  return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide ring-1 ring-inset ${color}">${esc(String(text).replace(/_/g, ' '))}</span>`;
+  return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide ring-1 ring-inset ${color}">${escapeHTML(String(text).replace(/_/g, ' '))}</span>`;
 }
 
 export function toast(message: string, type: 'success' | 'error' | 'info' = 'success'): void {
@@ -66,7 +69,7 @@ export function toast(message: string, type: 'success' | 'error' | 'info' = 'suc
   };
   const item = document.createElement('div');
   item.className = `animate-in flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-2xl backdrop-blur ${colors[type]}`;
-  item.innerHTML = `${icon(type === 'error' ? 'alert' : type === 'info' ? 'info' : 'check', 'w-4 h-4 mt-0.5 shrink-0')}<span>${esc(message)}</span>`;
+  item.innerHTML = `${icon(type === 'error' ? 'alert' : type === 'info' ? 'info' : 'check', 'w-4 h-4 mt-0.5 shrink-0')}<span>${escapeHTML(message)}</span>`;
   root.appendChild(item);
   setTimeout(() => item.remove(), 4200);
 }
@@ -81,9 +84,9 @@ export function openModal(title: string, content: string, width = 'max-w-3xl'): 
   const overlay = document.createElement('div');
   overlay.className = 'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-6 backdrop-blur-sm';
   overlay.innerHTML = `
-    <div class="animate-in my-auto w-full ${width} overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900 shadow-2xl">
+    <div class="animate-in my-auto w-full ${escapeHTML(width)} overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900 shadow-2xl">
       <div class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-        <h3 class="text-base font-semibold text-white">${esc(title)}</h3>
+        <h3 class="text-base font-semibold text-white">${escapeHTML(title)}</h3>
         <button data-close class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">${icon('x', 'w-5 h-5')}</button>
       </div>
       <div class="modal-body max-h-[calc(100vh-9rem)] overflow-y-auto px-6 py-5">${content}</div>
@@ -102,7 +105,7 @@ export function openModal(title: string, content: string, width = 'max-w-3xl'): 
 export function confirmDialog(message: string): Promise<boolean> {
   return new Promise((resolve) => {
     const modal = openModal('Confirmar exclusão', `
-      <p class="text-sm leading-6 text-slate-300">${esc(message)}</p>
+      <p class="text-sm leading-6 text-slate-300">${escapeHTML(message)}</p>
       <div class="mt-6 flex justify-end gap-3">
         <button data-cancel class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Cancelar</button>
         <button data-confirm class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500">Excluir</button>
@@ -114,26 +117,27 @@ export function confirmDialog(message: string): Promise<boolean> {
 
 export function fieldHtml(field: FieldDef, value: unknown, options: { id: number; label: string }[] = []): string {
   const v = value ?? '';
-  const common = `name="${field.key}" id="f_${field.key}" class="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"`;
-  const label = `<label for="f_${field.key}" class="mb-1.5 block text-xs font-medium text-slate-400">${esc(field.label)}${field.required ? ' <span class="text-rose-400">*</span>' : ''}</label>`;
-  const hint = field.hint ? `<p class="mt-1.5 text-[11px] leading-4 text-slate-500">${esc(field.hint)}</p>` : '';
+  const key = escapeHTML(field.key);
+  const common = `name="${key}" id="f_${key}" class="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"`;
+  const label = `<label for="f_${key}" class="mb-1.5 block text-xs font-medium text-slate-400">${escapeHTML(field.label)}${field.required ? ' <span class="text-rose-400">*</span>' : ''}</label>`;
+  const hint = field.hint ? `<p class="mt-1.5 text-[11px] leading-4 text-slate-500">${escapeHTML(field.hint)}</p>` : '';
   let control = '';
 
   if (field.type === 'textarea') {
-    control = `<textarea ${common} rows="3" placeholder="${esc(field.placeholder ?? '')}">${esc(v)}</textarea>`;
+    control = `<textarea ${common} rows="3" placeholder="${escapeHTML(field.placeholder ?? '')}">${escapeHTML(v)}</textarea>`;
   } else if (field.type === 'select' || field.type === 'ref') {
     const opts = field.type === 'ref'
-      ? options.map((o) => `<option value="${o.id}" ${String(v) === String(o.id) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')
-      : (field.options ?? []).map((o) => `<option value="${o}" ${String(v) === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
+      ? options.map((o) => `<option value="${escapeHTML(o.id)}" ${String(v) === String(o.id) ? 'selected' : ''}>${escapeHTML(o.label)}</option>`).join('')
+      : (field.options ?? []).map((o) => `<option value="${escapeHTML(o)}" ${String(v) === o ? 'selected' : ''}>${escapeHTML(o)}</option>`).join('');
     control = `<select ${common}><option value="">Selecione...</option>${opts}</select>`;
   } else if (field.type === 'checkbox') {
     control = `<label class="inline-flex cursor-pointer items-center gap-2.5 text-sm text-slate-300">
-      <input type="checkbox" name="${field.key}" id="f_${field.key}" class="h-4 w-4 rounded border-slate-600 bg-slate-950 accent-brand-500" ${v ? 'checked' : ''}>
-      <span>${esc(field.hint ?? 'Sim')}</span></label>`;
+      <input type="checkbox" name="${key}" id="f_${key}" class="h-4 w-4 rounded border-slate-600 bg-slate-950 accent-brand-500" ${v ? 'checked' : ''}>
+      <span>${escapeHTML(field.hint ?? 'Sim')}</span></label>`;
   } else {
     const type = field.type === 'money' ? 'number' : field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text';
     const step = field.type === 'money' || field.type === 'number' ? 'step="any"' : '';
-    control = `<input type="${type}" ${step} ${common} value="${esc(v)}" placeholder="${esc(field.placeholder ?? '')}">`;
+    control = `<input type="${escapeHTML(type)}" ${escapeHTML(step)} ${common} value="${escapeHTML(v)}" placeholder="${escapeHTML(field.placeholder ?? '')}">`;
   }
 
   const inner = field.type === 'checkbox'

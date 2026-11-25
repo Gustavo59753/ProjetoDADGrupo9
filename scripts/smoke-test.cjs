@@ -274,6 +274,34 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
     global.fetch = originalFetch;
   }
 
+  console.log('\n[3.2] Validação de e-mail no CRUD genérico');
+  const emailInvalidoCreate = await rawCall('db:create', 'mecanicos', {
+    nome: 'Mecânico Email Inválido', ativo: 1, email: 'cliente',
+  });
+  assert(
+    emailInvalidoCreate.ok === false && /E-mail inválido/.test(emailInvalidoCreate.error),
+    'e-mail inválido bloqueia db:create de entidade com campo email'
+  );
+
+  const mecanicoEmail = await call('db:create', 'mecanicos', {
+    nome: 'Mecânico Email', ativo: 1, email: 'cliente@gmail.com',
+  });
+  assert(mecanicoEmail.email === 'cliente@gmail.com', 'e-mail válido é aceito em db:create');
+
+  const emailInvalidoUpdate = await rawCall('db:update', 'mecanicos', mecanicoEmail.id, { email: 'cliente' });
+  assert(
+    emailInvalidoUpdate.ok === false && /E-mail inválido/.test(emailInvalidoUpdate.error),
+    'e-mail inválido bloqueia db:update'
+  );
+
+  const atualizadoSemEmail = await call('db:update', 'mecanicos', mecanicoEmail.id, {
+    observacoes: 'Alteração sem e-mail',
+  });
+  assert(
+    atualizadoSemEmail.email === 'cliente@gmail.com' && atualizadoSemEmail.observacoes === 'Alteração sem e-mail',
+    'update parcial sem email continua funcionando'
+  );
+
   console.log('\n[4] Regras de estoque e total da OS');
   assert((await call('db:get', 'pecas', peca.id)).quantidade === 9, 'baixa de estoque ao adicionar item');
   assert((await call('db:get', 'ordens_servico', os.id)).valor_total === 150, 'total recalculado (100 mão de obra + 50 peça)');
@@ -297,6 +325,42 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
   assert((await call('db:get', 'pecas', peca.id)).fornecedor_id === null, 'FK SET NULL aplicada em pecas.fornecedor_id');
   assert(notify.link.startsWith('https://wa.me/55'), 'aviso gera link wa.me com DDI 55');
   assert(externalLinks.length === 1 && externalLinks[0] === notify.link, 'link externo aberto pelo processo principal');
+
+  console.log('\n[5.1] Avisos por app nativo (SMS e e-mail, sem API paga)');
+  const linksAposOsNotify = externalLinks.length;
+  const avisoSms = await call('notification:create', {
+    canal: 'SMS', destino: '19981848882', mensagem: 'Seu veículo está pronto para retirada.',
+  });
+  assert(avisoSms.link.startsWith('sms:5519981848882?body='), 'notification:create SMS gera link sms: com DDI 55');
+  assert(avisoSms.status === 'ABERTO_NO_APP', 'SMS retorna status ABERTO_NO_APP');
+  const avisoSmsSalvo = await call('db:get', 'notificacoes', avisoSms.notificationId);
+  assert(avisoSmsSalvo.canal === 'SMS' && avisoSmsSalvo.status === 'ABERTO_NO_APP', 'SMS e status persistidos no aviso');
+  assert(
+    avisoSmsSalvo.destino === '(19) 98184-8882',
+    'notification:create grava destino de dígitos puros com a máscara da UI'
+  );
+  assert(
+    (await call('db:list', 'notificacoes', '19981848882')).some((n) => n.id === avisoSms.notificationId),
+    'db:list encontra aviso pelo telefone sem máscara'
+  );
+
+  const avisoEmail = await call('notification:create', {
+    canal: 'E-mail', destino: 'cliente@gmail.com', mensagem: 'Seu veículo está pronto para retirada.',
+  });
+  assert(avisoEmail.link.startsWith('mailto:cliente@gmail.com?subject='), 'notification:create E-mail gera link mailto:');
+  assert(avisoEmail.status === 'ABERTO_NO_APP', 'E-mail retorna status ABERTO_NO_APP');
+  assert(
+    externalLinks.length === linksAposOsNotify + 2 &&
+      externalLinks[linksAposOsNotify] === avisoSms.link &&
+      externalLinks[linksAposOsNotify + 1] === avisoEmail.link,
+    'cada aviso abre exatamente uma deep link no processo principal'
+  );
+
+  const emailInvalido = await rawCall('notification:create', {
+    canal: 'E-mail', destino: 'cliente', mensagem: 'Aviso com destinatário inválido.',
+  });
+  assert(emailInvalido.ok === false && /E-mail/.test(emailInvalido.error), 'E-mail inválido retorna ok:false');
+  assert(externalLinks.length === linksAposOsNotify + 2, 'destino inválido não abre nenhum app externo');
 
   console.log('\n[6] Dashboard e busca com aliases');
   const dashboard = await call('db:dashboard');
@@ -352,12 +416,15 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
   }
 
   console.log('\n[8] Exclusões');
+  await call('db:delete', 'notificacoes', avisoSms.notificationId);
+  await call('db:delete', 'notificacoes', avisoEmail.notificationId);
   await call('db:delete', 'notificacoes', notify.notificationId);
   await call('db:delete', 'ordens_servico', os.id);
   await call('db:delete', 'veiculos', veiculo.id);
   await call('db:delete', 'clientes', cliente.id);
   await call('db:delete', 'pecas', peca.id);
   await call('db:delete', 'mecanicos', mecanico.id);
+  await call('db:delete', 'mecanicos', mecanicoEmail.id);
   assert(true, 'todos os registros de teste foram excluídos');
 
   console.log('\nTODOS OS TESTES PASSARAM');
