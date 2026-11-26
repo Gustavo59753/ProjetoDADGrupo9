@@ -39,6 +39,10 @@ export interface CnpjData {
   cidade: string;
   uf: string;
   cep: string;
+  telefone?: string;
+  email?: string;
+  situacao?: string;
+  complemento?: string;
 }
 
 export type FieldType =

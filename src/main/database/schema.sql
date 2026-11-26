@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS fornecedores (
   email         VARCHAR(160),
   pais          VARCHAR(80) NOT NULL DEFAULT 'Brasil',
   observacoes   TEXT,
-  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ativo         TINYINT(1) NOT NULL DEFAULT 1,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_fornecedores_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -28,8 +30,10 @@ CREATE TABLE IF NOT EXISTS clientes (
   cidade       VARCHAR(120),
   uf           VARCHAR(2),
   observacoes  TEXT,
+  ativo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_clientes_tipo_pessoa CHECK (tipo_pessoa IN ('PF', 'PJ'))
+  CONSTRAINT chk_clientes_tipo_pessoa CHECK (tipo_pessoa IN ('PF', 'PJ')),
+  CONSTRAINT chk_clientes_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS veiculos (
@@ -46,9 +50,11 @@ CREATE TABLE IF NOT EXISTS veiculos (
   renavam         VARCHAR(30),
   importado       TINYINT(1) NOT NULL DEFAULT 0,
   observacoes     TEXT,
+  ativo           TINYINT(1) NOT NULL DEFAULT 1,
   created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_veiculos_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
-  CONSTRAINT chk_veiculos_importado CHECK (importado IN (0, 1))
+  CONSTRAINT chk_veiculos_importado CHECK (importado IN (0, 1)),
+  CONSTRAINT chk_veiculos_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS mecanicos (
@@ -76,11 +82,13 @@ CREATE TABLE IF NOT EXISTS pecas (
   importada      TINYINT(1) NOT NULL DEFAULT 0,
   moeda          VARCHAR(3) NOT NULL DEFAULT 'BRL',
   observacoes    TEXT,
+  ativo          TINYINT(1) NOT NULL DEFAULT 1,
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_pecas_fornecedor FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id) ON DELETE SET NULL,
   CONSTRAINT chk_pecas_valores CHECK (preco_custo >= 0 AND preco_venda >= 0 AND quantidade >= 0 AND estoque_minimo >= 0),
   CONSTRAINT chk_pecas_importada CHECK (importada IN (0, 1)),
-  CONSTRAINT chk_pecas_moeda CHECK (moeda IN ('BRL', 'USD'))
+  CONSTRAINT chk_pecas_moeda CHECK (moeda IN ('BRL', 'USD')),
+  CONSTRAINT chk_pecas_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ordens_servico (
@@ -98,11 +106,13 @@ CREATE TABLE IF NOT EXISTS ordens_servico (
   cotacao_dolar      DECIMAL(12,4),
   valor_total        DECIMAL(12,2) NOT NULL DEFAULT 0,
   observacoes        TEXT,
+  ativo              TINYINT(1) NOT NULL DEFAULT 1,
   created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_os_veiculo FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE RESTRICT,
   CONSTRAINT fk_os_mecanico FOREIGN KEY (mecanico_id) REFERENCES mecanicos(id) ON DELETE SET NULL,
   CONSTRAINT chk_os_status CHECK (status IN ('ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_PECA', 'PRONTA', 'ENTREGUE', 'CANCELADA')),
-  CONSTRAINT chk_os_valores CHECK (valor_mao_obra >= 0 AND desconto >= 0)
+  CONSTRAINT chk_os_valores CHECK (valor_mao_obra >= 0 AND desconto >= 0),
+  CONSTRAINT chk_ordens_servico_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS itens_ordem (
@@ -112,10 +122,12 @@ CREATE TABLE IF NOT EXISTS itens_ordem (
   quantidade       INT NOT NULL,
   preco_unitario   DECIMAL(12,2) NOT NULL,
   subtotal         DECIMAL(12,2) NOT NULL,
+  ativo            TINYINT(1) NOT NULL DEFAULT 1,
   CONSTRAINT fk_itens_os FOREIGN KEY (ordem_servico_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
   CONSTRAINT fk_itens_peca FOREIGN KEY (peca_id) REFERENCES pecas(id) ON DELETE RESTRICT,
   CONSTRAINT uq_item_os_peca UNIQUE (ordem_servico_id, peca_id),
-  CONSTRAINT chk_itens_valores CHECK (quantidade > 0 AND preco_unitario >= 0 AND subtotal >= 0)
+  CONSTRAINT chk_itens_valores CHECK (quantidade > 0 AND preco_unitario >= 0 AND subtotal >= 0),
+  CONSTRAINT chk_itens_ordem_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS notificacoes (
@@ -127,11 +139,13 @@ CREATE TABLE IF NOT EXISTS notificacoes (
   mensagem         TEXT NOT NULL,
   status           VARCHAR(24) NOT NULL DEFAULT 'PENDENTE',
   erro             VARCHAR(255),
+  ativo            TINYINT(1) NOT NULL DEFAULT 1,
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_notificacoes_os FOREIGN KEY (ordem_servico_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
   CONSTRAINT fk_notificacoes_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL,
   CONSTRAINT chk_notificacoes_canal CHECK (canal IN ('WhatsApp', 'SMS', 'E-mail')),
-  CONSTRAINT chk_notificacoes_status CHECK (status IN ('PENDENTE', 'ABERTO_NO_WHATSAPP', 'ABERTO_NO_APP', 'ENVIADO', 'FALHA'))
+  CONSTRAINT chk_notificacoes_status CHECK (status IN ('PENDENTE', 'ABERTO_NO_WHATSAPP', 'ABERTO_NO_APP', 'ENVIADO', 'FALHA')),
+  CONSTRAINT chk_notificacoes_ativo CHECK (ativo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Índices das chaves estrangeiras
@@ -143,3 +157,8 @@ CREATE INDEX idx_itens_os             ON itens_ordem(ordem_servico_id);
 CREATE INDEX idx_itens_peca           ON itens_ordem(peca_id);
 CREATE INDEX idx_notificacoes_os      ON notificacoes(ordem_servico_id);
 CREATE INDEX idx_notificacoes_cliente ON notificacoes(cliente_id);
+
+-- Filtros de leitura (soft delete): o ativo sozinho tem baixa seletividade,
+-- por isso ele entra como segunda coluna em índices compostos de consultas frequentes.
+CREATE INDEX idx_os_status_ativo     ON ordens_servico(status, ativo);
+CREATE INDEX idx_itens_os_ativo      ON itens_ordem(ordem_servico_id, ativo);

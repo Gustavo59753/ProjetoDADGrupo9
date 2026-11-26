@@ -30,9 +30,9 @@ export async function notifyReady(osId: number, customMessage?: string): Promise
            c.id AS cliente_id, c.nome AS cliente_nome, c.telefone,
            v.placa, v.modelo
       FROM ordens_servico o
-      JOIN veiculos v ON v.id = o.veiculo_id
-      JOIN clientes c ON c.id = v.cliente_id
-     WHERE o.id = ?
+      JOIN veiculos v ON v.id = o.veiculo_id AND v.ativo = 1
+      JOIN clientes c ON c.id = v.cliente_id AND c.ativo = 1
+     WHERE o.id = ? AND o.ativo = 1
   `).get(osId);
 
   if (!os) throw new Error('Ordem de serviço não encontrada.');

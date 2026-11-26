@@ -60,12 +60,18 @@ async function readNotificacoesCreateTable(db: Db): Promise<string | null> {
 }
 
 /** Executa um passo da migration sem nunca interromper a inicialização. */
-async function tryMigrationStatement(db: Db, description: string, sql: string): Promise<boolean> {
+async function tryMigrationStatement(
+  db: Db,
+  description: string,
+  sql: string,
+  ignoreError?: (error: unknown) => boolean
+): Promise<boolean> {
   try {
     await db.exec(sql);
     return true;
   } catch (error) {
-    console.warn(`[migration] ${description} não aplicado em notificacoes: ${errorMessage(error)}`);
+    if (ignoreError?.(error)) return false;
+    console.warn(`[migration] ${description} não aplicado: ${errorMessage(error)}`);
     return false;
   }
 }
@@ -102,4 +108,39 @@ export async function ensureClientesColumns(db: Db): Promise<void> {
       if (!isDuplicateColumnError(error)) throw error;
     }
   }
+  // initDb() já chama esta função na inicialização: aproveitamos o ponto para
+  // garantir o soft delete antes que qualquer serviço consulte as tabelas.
+  await ensureAtivoColumns(db);
+}
+
+/** Tabelas que não tinham a coluna de soft delete no schema original. */
+const ATIVO_TABLES = [
+  'fornecedores',
+  'clientes',
+  'veiculos',
+  'pecas',
+  'ordens_servico',
+  'itens_ordem',
+  'notificacoes',
+] as const;
+
+/**
+ * Bancos antigos não recebem a coluna apenas com CREATE TABLE IF NOT EXISTS.
+ * A ALTER é idempotente (coluna já existente é ignorada em MySQL e SQLite).
+ * Não aplicamos CHECK via MODIFY: o adaptador SQLite do smoke-test não suporta
+ * essa sintaxe. O default 1 preserva todos os registros já gravados como ativos.
+ */
+const ativoReady = new WeakSet<Db>();
+
+export async function ensureAtivoColumns(db: Db): Promise<void> {
+  if (ativoReady.has(db)) return;
+  for (const table of ATIVO_TABLES) {
+    await tryMigrationStatement(
+      db,
+      `ALTER TABLE ${table} ADD COLUMN ativo`,
+      `ALTER TABLE ${table} ADD COLUMN ativo TINYINT(1) NOT NULL DEFAULT 1`,
+      isDuplicateColumnError
+    );
+  }
+  ativoReady.add(db);
 }

@@ -104,11 +104,11 @@ export function openModal(title: string, content: string, width = 'max-w-3xl'): 
 
 export function confirmDialog(message: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const modal = openModal('Confirmar exclusão', `
+    const modal = openModal('Confirmar inativação', `
       <p class="text-sm leading-6 text-slate-300">${escapeHTML(message)}</p>
       <div class="mt-6 flex justify-end gap-3">
         <button data-cancel class="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Cancelar</button>
-        <button data-confirm class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500">Excluir</button>
+        <button data-confirm class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500">Inativar</button>
       </div>`, 'max-w-md');
     modal.element.querySelector('[data-cancel]')?.addEventListener('click', () => { modal.close(); resolve(false); });
     modal.element.querySelector('[data-confirm]')?.addEventListener('click', () => { modal.close(); resolve(true); });

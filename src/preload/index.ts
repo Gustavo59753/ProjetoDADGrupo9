@@ -15,6 +15,9 @@ function invoke<T>(channel: string, ...args: unknown[]): Promise<ApiResponse<T>>
   return ipcRenderer.invoke(channel, ...args);
 }
 
+/** Campos extras continuam aceitos; `assunto` é opcional e só compõe o mailto. */
+export type CreateNotificationInput = Record<string, unknown> & { assunto?: string };
+
 const api = {
   list: (entity: EntityName, search = '') => invoke<Record<string, unknown>[]>('db:list', entity, search),
   get: (entity: EntityName, id: number) => invoke<Record<string, unknown>>('db:get', entity, id),
@@ -36,7 +39,7 @@ const api = {
   setDollar: (osId: number, rate: number) => invoke<null>('os:setDollar', osId, rate),
   refreshCosts: (osId: number) => invoke<null>('os:refreshCosts', osId),
   notify: (osId: number, message?: string) => invoke<NotificationResult>('os:notify', osId, message),
-  createNotification: (data: Record<string, unknown>) => invoke<NotificationResult>('notification:create', data),
+  createNotification: (data: CreateNotificationInput) => invoke<NotificationResult>('notification:create', data),
 
   dollar: (force = false) => invoke<DollarQuote>('api:dollar', force),
   plate: (plate: string) => invoke<LookupResult<PlateData>>('db:plate', plate),

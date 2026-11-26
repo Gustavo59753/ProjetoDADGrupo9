@@ -1,7 +1,6 @@
 import { ipcMain, shell, clipboard } from 'electron';
 import { ENTITIES } from '@shared/schema';
-import type { EntityName, NotificationChannel, NotificationResult } from '@shared/types';
-import { normalizeDestination } from '@shared/validation';
+import type { EntityName, NotificationResult } from '@shared/types';
 import * as repo from './database/repository';
 import * as ordens from './database/ordens';
 import { getDollarQuote } from './services/exchange';
@@ -10,9 +9,9 @@ import { searchFipe } from './services/fipe';
 import { notifyReady } from './services/notification';
 import { deliverNotification } from './services/notification-delivery';
 import { lookupCep } from './services/cep';
-import { lookupCnpj } from './services/cnpj';
+import { lookupCnpj, prepareSupplierInput } from './services/cnpj';
 import { validateClientInput } from './services/client-validation';
-import { validateNotificationInput } from './services/notification-validation';
+import { normalizeNotificationInput } from './services/notification-validation';
 import { validateEmailInput } from './services/email-validation';
 
 function assertEntity(value: string): EntityName {
@@ -25,6 +24,13 @@ function validateEntityEmail(name: EntityName, input: Record<string, unknown>): 
   if (!input || !ENTITIES[name].fields.some((field) => field.key === 'email')) return;
   if (input.email === undefined) return;
   validateEmailInput(input);
+}
+
+/** Campo textual opcional: ausente ou em branco não deve virar subject do mailto. */
+function optionalText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text || undefined;
 }
 
 /** Envolve todos os handlers para que o renderer receba { ok, data, error }. */
@@ -47,11 +53,8 @@ export function registerIpc(): void {
     validateEntityEmail(name, input);
     let payload = input;
     if (name === 'clientes') validateClientInput(input);
-    if (name === 'notificacoes') {
-      validateNotificationInput(input);
-      const canal = input.canal as NotificationChannel;
-      payload = { ...input, destino: normalizeDestination(canal, String(input.destino)) };
-    }
+    if (name === 'fornecedores') payload = await prepareSupplierInput(input);
+    if (name === 'notificacoes') payload = normalizeNotificationInput(input).payload;
     if (name === 'itens_ordem') {
       const itemId = await ordens.addItem(Number(input.ordem_servico_id), {
         peca_id: Number(input.peca_id),
@@ -74,14 +77,12 @@ export function registerIpc(): void {
     const recordId = Number(id);
     let payload = input;
     if (name === 'clientes') validateClientInput(input);
-    if (name === 'notificacoes') {
-      // Updates parciais (ex.: apenas status) são validados contra o registro salvo.
+    if (name === 'fornecedores' || name === 'notificacoes') {
+      // Updates parciais são validados contra o registro salvo; no fornecedor,
+      // o registro atual também evita consultar a Receita quando o CNPJ não muda.
       const current = await repo.get(name, recordId);
-      if (input.destino !== undefined) {
-        const canal = (input.canal ?? current?.canal) as NotificationChannel;
-        payload = { ...input, destino: normalizeDestination(canal, String(input.destino)) };
-      }
-      validateNotificationInput({ ...current, ...payload });
+      if (name === 'fornecedores') payload = await prepareSupplierInput(input, current);
+      else payload = normalizeNotificationInput(input, current).payload;
     }
     if (name === 'itens_ordem') {
       await ordens.updateItem(recordId, {
@@ -126,23 +127,21 @@ export function registerIpc(): void {
   });
 
   handle('notification:create', async (input: Record<string, unknown>) => {
-    validateNotificationInput(input);
-    const canal = String(input.canal) as NotificationChannel;
-    const destino = normalizeDestination(canal, String(input.destino));
-    const mensagem = String(input.mensagem);
+    const { payload, canal, destino, mensagem } = normalizeNotificationInput(input);
+    const assunto = optionalText(input.assunto);
 
+    // `assunto` compõe apenas o mailto: não existe coluna para ele no aviso.
+    const rowInput: Record<string, unknown> = { ...payload };
+    delete rowInput.assunto;
     const row = await repo.create('notificacoes', {
-      ...input,
-      canal,
-      destino,
-      mensagem,
+      ...rowInput,
       status: 'PENDENTE',
       erro: null,
     });
     const notificationId = Number(row.id);
 
     try {
-      const delivery = await deliverNotification(canal, destino, mensagem);
+      const delivery = await deliverNotification(canal, destino, mensagem, assunto);
       await repo.update('notificacoes', notificationId, { status: delivery.status });
       return {
         notificationId,

@@ -14,7 +14,8 @@ const CPF_HINT = 'CPF com 11 dígitos. Os dígitos são validados no cadastro.';
 const CNPJ_HINT = 'CNPJ com 14 dígitos. Os dígitos são validados no cadastro e os dados da empresa são consultados na Minha Receita.';
 const LOOKUP_DELAY = 350;
 
-function digits(value: string): string {
+/** Helpers compartilhados com o CRUD (máscara de CNPJ de fornecedores). */
+export function digits(value: string): string {
   return value.replace(/\D/g, '');
 }
 
@@ -23,7 +24,7 @@ function maskCep(value: string): string {
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
 }
 
-function maskDocument(value: string, person: PersonType): string {
+export function maskDocument(value: string, person: PersonType): string {
   const d = digits(value).slice(0, person === 'PJ' ? 14 : 11);
   if (person !== 'PJ') {
     let out = d.slice(0, 3);

@@ -12,7 +12,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     primaryKey: 'id',
     columns: [
       'id', 'nome', 'tipo_pessoa', 'cpf_cnpj', 'telefone', 'email', 'cep', 'endereco',
-      'numero', 'cidade', 'uf', 'observacoes', 'created_at',
+      'numero', 'cidade', 'uf', 'observacoes', 'ativo', 'created_at',
     ],
     fields: [
       { key: 'nome', label: 'Nome completo / Razão social', type: 'text', required: true, placeholder: 'Ex.: João da Silva' },
@@ -49,7 +49,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     primaryKey: 'id',
     columns: [
       'id', 'cliente_id', 'placa', 'marca', 'modelo', 'ano_fabricacao', 'ano_modelo',
-      'cor', 'combustivel', 'chassi', 'renavam', 'importado', 'observacoes', 'created_at',
+      'cor', 'combustivel', 'chassi', 'renavam', 'importado', 'observacoes', 'ativo', 'created_at',
     ],
     fields: [
       { key: 'cliente_id', label: 'Proprietário', type: 'ref', ref: 'clientes', refLabel: 'nome', required: true },
@@ -77,7 +77,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
       { key: 'cor', label: 'Cor' },
     ],
     searchColumns: ['placa', 'marca', 'modelo', 'cor', 'chassi'],
-    joins: ['(SELECT c.nome FROM clientes c WHERE c.id = e.cliente_id) AS cliente_nome'],
+    joins: ["COALESCE((SELECT c.nome FROM clientes c WHERE c.id = e.cliente_id AND c.ativo = 1), '—') AS cliente_nome"],
     defaultOrder: 'e.placa ASC',
   },
 
@@ -115,7 +115,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     table: 'fornecedores',
     primaryKey: 'id',
     columns: [
-      'id', 'razao_social', 'cnpj', 'contato', 'telefone', 'email', 'pais', 'observacoes', 'created_at',
+      'id', 'razao_social', 'cnpj', 'contato', 'telefone', 'email', 'pais', 'observacoes', 'ativo', 'created_at',
     ],
     fields: [
       { key: 'razao_social', label: 'Razão social', type: 'text', required: true },
@@ -146,7 +146,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     columns: [
       'id', 'numero', 'veiculo_id', 'mecanico_id', 'data_entrada', 'data_saida', 'status',
       'descricao_problema', 'descricao_servico', 'valor_mao_obra', 'desconto', 'cotacao_dolar',
-      'valor_total', 'observacoes', 'created_at',
+      'valor_total', 'observacoes', 'ativo', 'created_at',
     ],
     fields: [
       { key: 'numero', label: 'Número da OS', type: 'text', required: true, placeholder: 'OS-0001' },
@@ -177,9 +177,9 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     ],
     searchColumns: ['numero', 'status', 'descricao_problema', 'descricao_servico'],
     joins: [
-      "(SELECT CONCAT(v.placa, ' · ', COALESCE(v.marca, ''), ' ', COALESCE(v.modelo, '')) FROM veiculos v WHERE v.id = e.veiculo_id) AS veiculo_info",
-      '(SELECT c.nome FROM clientes c JOIN veiculos v ON v.cliente_id = c.id WHERE v.id = e.veiculo_id) AS cliente_nome',
-      '(SELECT m.nome FROM mecanicos m WHERE m.id = e.mecanico_id) AS mecanico_nome',
+      "COALESCE((SELECT CONCAT(v.placa, ' · ', COALESCE(v.marca, ''), ' ', COALESCE(v.modelo, '')) FROM veiculos v WHERE v.id = e.veiculo_id AND v.ativo = 1), '—') AS veiculo_info",
+      "COALESCE((SELECT c.nome FROM clientes c JOIN veiculos v ON v.cliente_id = c.id WHERE v.id = e.veiculo_id AND v.ativo = 1 AND c.ativo = 1), '—') AS cliente_nome",
+      "COALESCE((SELECT m.nome FROM mecanicos m WHERE m.id = e.mecanico_id AND m.ativo = 1), '—') AS mecanico_nome",
     ],
     defaultOrder: 'e.id DESC',
   },
@@ -192,7 +192,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     primaryKey: 'id',
     columns: [
       'id', 'codigo', 'descricao', 'fornecedor_id', 'numero_peca', 'preco_custo', 'preco_venda',
-      'quantidade', 'estoque_minimo', 'importada', 'moeda', 'observacoes', 'created_at',
+      'quantidade', 'estoque_minimo', 'importada', 'moeda', 'observacoes', 'ativo', 'created_at',
     ],
     fields: [
       { key: 'codigo', label: 'Código interno', type: 'text', required: true, placeholder: 'PEC-001' },
@@ -216,7 +216,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
       { key: 'moeda', label: 'Moeda' },
     ],
     searchColumns: ['codigo', 'descricao', 'numero_peca'],
-    joins: ['(SELECT f.razao_social FROM fornecedores f WHERE f.id = e.fornecedor_id) AS fornecedor_nome'],
+    joins: ["COALESCE((SELECT f.razao_social FROM fornecedores f WHERE f.id = e.fornecedor_id AND f.ativo = 1), '—') AS fornecedor_nome"],
     defaultOrder: 'e.descricao ASC',
   },
 
@@ -226,7 +226,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     icon: 'list',
     table: 'itens_ordem',
     primaryKey: 'id',
-    columns: ['id', 'ordem_servico_id', 'peca_id', 'quantidade', 'preco_unitario', 'subtotal'],
+    columns: ['id', 'ordem_servico_id', 'peca_id', 'quantidade', 'preco_unitario', 'subtotal', 'ativo'],
     fields: [
       { key: 'ordem_servico_id', label: 'Ordem de serviço', type: 'ref', ref: 'ordens_servico', refLabel: 'numero', required: true },
       { key: 'peca_id', label: 'Peça', type: 'ref', ref: 'pecas', refLabel: 'descricao', required: true },
@@ -243,8 +243,8 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     ],
     searchColumns: ['ordem_numero', 'peca_descricao'],
     joins: [
-      '(SELECT o.numero FROM ordens_servico o WHERE o.id = e.ordem_servico_id) AS ordem_numero',
-      '(SELECT p.descricao FROM pecas p WHERE p.id = e.peca_id) AS peca_descricao',
+      "COALESCE((SELECT o.numero FROM ordens_servico o WHERE o.id = e.ordem_servico_id AND o.ativo = 1), '—') AS ordem_numero",
+      "COALESCE((SELECT p.descricao FROM pecas p WHERE p.id = e.peca_id AND p.ativo = 1), '—') AS peca_descricao",
     ],
     defaultOrder: 'e.id DESC',
   },
@@ -256,7 +256,7 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     table: 'notificacoes',
     primaryKey: 'id',
     columns: [
-      'id', 'ordem_servico_id', 'cliente_id', 'canal', 'destino', 'mensagem', 'status', 'erro', 'created_at',
+      'id', 'ordem_servico_id', 'cliente_id', 'canal', 'destino', 'mensagem', 'status', 'erro', 'ativo', 'created_at',
     ],
     fields: [
       { key: 'ordem_servico_id', label: 'Ordem de serviço', type: 'ref', ref: 'ordens_servico', refLabel: 'numero' },
@@ -283,8 +283,8 @@ export const ENTITIES: Record<EntityName, EntityMeta> = {
     ],
     searchColumns: ['destino', 'mensagem', 'status', 'canal'],
     joins: [
-      '(SELECT o.numero FROM ordens_servico o WHERE o.id = e.ordem_servico_id) AS ordem_numero',
-      '(SELECT c.nome FROM clientes c WHERE c.id = e.cliente_id) AS cliente_nome',
+      "COALESCE((SELECT o.numero FROM ordens_servico o WHERE o.id = e.ordem_servico_id AND o.ativo = 1), '—') AS ordem_numero",
+      "COALESCE((SELECT c.nome FROM clientes c WHERE c.id = e.cliente_id AND c.ativo = 1), '—') AS cliente_nome",
     ],
     defaultOrder: 'e.id DESC',
   },
@@ -307,18 +307,19 @@ export const STATUS_COLORS: Record<string, string> = {
 };
 
 export const DEFAULT_VALUES: Record<EntityName, Record<string, unknown>> = {
-  clientes: { tipo_pessoa: 'PF', uf: 'SP' },
-  veiculos: { importado: 0 },
+  clientes: { tipo_pessoa: 'PF', uf: 'SP', ativo: 1 },
+  veiculos: { importado: 0, ativo: 1 },
   mecanicos: { ativo: 1 },
-  fornecedores: { pais: 'Brasil' },
+  fornecedores: { pais: 'Brasil', ativo: 1 },
   ordens_servico: {
     status: 'ABERTA',
     data_entrada: new Date().toISOString().slice(0, 10),
     valor_mao_obra: 0,
     desconto: 0,
     valor_total: 0,
+    ativo: 1,
   },
-  pecas: { quantidade: 0, estoque_minimo: 0, importada: 0, moeda: 'BRL' },
-  itens_ordem: { quantidade: 1 },
-  notificacoes: { canal: 'WhatsApp', status: 'PENDENTE' },
+  pecas: { quantidade: 0, estoque_minimo: 0, importada: 0, moeda: 'BRL', ativo: 1 },
+  itens_ordem: { quantidade: 1, ativo: 1 },
+  notificacoes: { canal: 'WhatsApp', status: 'PENDENTE', ativo: 1 },
 };

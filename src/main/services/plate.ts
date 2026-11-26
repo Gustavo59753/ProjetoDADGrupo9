@@ -43,9 +43,10 @@ export async function lookupPlate(plate: string): Promise<LookupResult<PlateData
   try {
     // A normalização no lado do banco aceita placa gravada com hífen/espaço ou em minúsculas.
     row = (await getDb().prepare(
-      `SELECT placa, marca, modelo, ano_fabricacao, ano_modelo, cor, combustivel, chassi, renavam
-         FROM veiculos
-        WHERE UPPER(REPLACE(REPLACE(placa, '-', ''), ' ', '')) = ?
+      `SELECT v.placa, v.marca, v.modelo, v.ano_fabricacao, v.ano_modelo, v.cor, v.combustivel, v.chassi, v.renavam
+         FROM veiculos v
+        WHERE UPPER(REPLACE(REPLACE(v.placa, '-', ''), ' ', '')) = ?
+          AND v.ativo = 1
         LIMIT 1`
     ).get(placa)) as PlateRow | undefined;
   } catch (error) {

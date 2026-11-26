@@ -10,8 +10,16 @@ const PHONE_HINT = 'Informe DDD + telefone com 10 ou 11 dígitos. A máscara é 
 const EMAIL_HINT = 'Informe o e-mail completo, com domínio e extensão (ex.: cliente@gmail.com).';
 const NEUTRAL_HINT = 'Selecione o canal para definir o formato do destino.';
 
-function isChannel(value: unknown): value is NotificationChannel {
-  return value === 'WhatsApp' || value === 'SMS' || value === 'E-mail';
+/**
+ * Normaliza o canal antes de qualquer validação/envio. O select oficial usa
+ * `E-mail`, mas registros legados (ou integrações) podem trazer `Email`/`email`.
+ */
+export function normalizeChannel(value: unknown): NotificationChannel | '' {
+  const text = String(value ?? '').trim().toLowerCase();
+  if (text === 'email' || text === 'e-mail') return 'E-mail';
+  if (text === 'whatsapp') return 'WhatsApp';
+  if (text === 'sms') return 'SMS';
+  return '';
 }
 
 /**
@@ -44,15 +52,19 @@ export function setupNotificationForm(
   let maskBound = false;
   let canalAtual: NotificationChannel | '' = '';
 
+  // fieldHtml só marca <option selected> para o valor exato: alinha valores legados.
+  const canalInicial = normalizeChannel(row?.canal);
+  if (canalInicial) select.value = canalInicial;
+
   function currentChannel(): NotificationChannel | '' {
-    // O <option selected> do fieldHtml já reflete o registro na edição.
-    const value: unknown = select.value;
-    return isChannel(value) ? value : '';
+    return normalizeChannel(select.value);
   }
 
   /** `clearInvalid` só vale para troca de canal: na abertura preservamos o valor salvo. */
   function applyChannel(clearInvalid = false): void {
     const canal = currentChannel();
+    // Mantém o valor do <select> canônico para readForm/backend.
+    if (canal && select.value !== canal) select.value = canal;
     canalAtual = canal;
     const phoneChannel = canal === 'WhatsApp' || canal === 'SMS';
 

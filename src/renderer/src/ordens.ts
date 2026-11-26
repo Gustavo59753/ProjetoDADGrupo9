@@ -1,4 +1,5 @@
 import type { DollarQuote } from '@shared/types';
+import { isValidEmail } from '@shared/validation';
 import { renderCrud } from './crud';
 import { badge, dateFmt, escapeHTML, icon, money, openModal, toast } from './ui';
 
@@ -48,6 +49,9 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
           ${os.status !== 'PRONTA' && os.status !== 'ENTREGUE' ? '<button id="os-ready" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20">Marcar como pronta</button>' : ''}
           <button id="os-notify" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500">
             ${icon('message', 'w-4 h-4')} Avisar cliente (WhatsApp)
+          </button>
+          <button id="os-notify-email" class="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-600">
+            ${icon('message', 'w-4 h-4')} Avisar cliente por e-mail
           </button>
         </div>
       </div>
@@ -173,6 +177,50 @@ async function openOsDetail(osId: number, reload: () => void): Promise<void> {
         toast('Mensagem copiada.');
       });
       reload();
+    });
+
+    body.querySelector('#os-notify-email')?.addEventListener('click', async () => {
+      let email = '';
+      let clienteId: number | undefined;
+      try {
+        const veiculoRes = await window.oficina.get('veiculos', Number(os.veiculo_id));
+        if (veiculoRes.ok && veiculoRes.data?.cliente_id) {
+          const id = Number(veiculoRes.data.cliente_id);
+          if (Number.isFinite(id) && id > 0) {
+            clienteId = id;
+            const clienteRes = await window.oficina.get('clientes', id);
+            if (clienteRes.ok) email = String(clienteRes.data?.email ?? '').trim();
+          }
+        }
+      } catch {
+        // Cadastro indisponível: solicita o e-mail diretamente ao usuário.
+      }
+      if (!email) {
+        const informado = window.prompt('E-mail do cliente:');
+        if (!informado || !informado.trim()) return toast('Informe o e-mail do cliente para preparar o aviso.', 'info');
+        email = informado.trim();
+      }
+      if (!isValidEmail(email)) return toast('E-mail inválido. Informe um endereço com domínio e extensão.', 'error');
+
+      const assunto = `Ordem de serviço ${os.numero}`;
+      const situacao = String(os.status ?? '').replace(/_/g, ' ').toLowerCase();
+      const mensagem = `Olá! A ordem de serviço ${os.numero} (${os.veiculo_info}) está ${situacao}. Valor total: ${money(total)}. Qualquer dúvida, fale com a oficina.`;
+      const payload: Record<string, unknown> = {
+        ordem_servico_id: osId,
+        canal: 'E-mail',
+        destino: email,
+        mensagem,
+        assunto,
+      };
+      if (clienteId) payload.cliente_id = clienteId;
+      try {
+        const response = await window.oficina.createNotification(payload);
+        if (!response.ok) return toast(response.error!, 'error');
+        toast('Aviso por e-mail preparado. Confirme o envio no app de e-mail aberto.', 'info');
+        reload();
+      } catch {
+        toast('Não foi possível preparar o aviso por e-mail.', 'error');
+      }
     });
   }
 

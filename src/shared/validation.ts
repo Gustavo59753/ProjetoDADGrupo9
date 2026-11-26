@@ -45,6 +45,20 @@ export function isValidEmail(value: string): boolean {
   return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(value);
 }
 
+/**
+ * Normaliza o canal na fronteira: aceita `E-mail`, `Email`, `e-mail`, variações
+ * de caixa/espaço e hífen. Retorna `null` para valores desconhecidos, para que
+ * a validação mantenha a mensagem de erro amigável.
+ */
+export function normalizeNotificationChannel(value: unknown): NotificationChannel | null {
+  if (typeof value !== 'string') return null;
+  const key = value.trim().toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'whatsapp') return 'WhatsApp';
+  if (key === 'sms') return 'SMS';
+  if (key === 'email') return 'E-mail';
+  return null;
+}
+
 /** Valor exibido/gravado no destino: telefone mascarado ou e-mail sem espaços. */
 export function normalizeDestination(channel: NotificationChannel, value: string): string {
   const trimmed = value.trim();
