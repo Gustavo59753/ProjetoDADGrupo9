@@ -101,6 +101,17 @@ export interface DollarQuote {
   fetchedAt: string;
 }
 
+/** Ordem de serviço ativa vinculada ao veículo encontrado pela placa. */
+export interface PlateOrdemServico {
+  id: number;
+  numero: string;
+  dataEntrada: string | null;
+  dataSaida: string | null;
+  status: string;
+  descricaoProblema: string | null;
+  valorTotal: number;
+}
+
 /** Dados de um veículo do cadastro local, usados para preencher o formulário. */
 export interface PlateData {
   placa: string;
@@ -112,6 +123,7 @@ export interface PlateData {
   combustivel: string | null;
   chassi: string | null;
   renavam: string | null;
+  ordensServico: PlateOrdemServico[];
 }
 
 export interface FipeVehicle {

@@ -171,9 +171,9 @@ Os três canais apenas abrem o aplicativo nativo do cliente (`shell.openExternal
 
 ### Sobre a consulta por placa
 
-A busca por placa **não usa API externa** e não exige chave: o renderer chama o canal IPC `db:plate` e o processo principal consulta diretamente a tabela `veiculos` do MySQL/MariaDB configurado (`src/main/services/plate.ts`).
+A busca por placa **não usa API externa** e não exige chave: o renderer chama o canal IPC `db:plate` e o processo principal consulta diretamente as tabelas `veiculos` e `ordens_servico` do MySQL/MariaDB configurado (`src/main/services/plate.ts`).
 
-A placa é normalizada (maiúsculas, sem hífen ou espaço) e validada nos formatos antigo `ABC1234` e Mercosul `ABC1D23`; formato inválido retorna `invalid` e é recusado. Placa não cadastrada retorna `not_found` com aviso para preencher os dados manualmente, sem bloquear o cadastro. Quando encontrada, a consulta devolve marca, modelo, anos, cor, combustível, chassi e renavam **do próprio cadastro da oficina**, usados no formulário de veículos e na aba Integrações.
+A placa é normalizada (maiúsculas, sem hífen ou espaço) e validada nos formatos antigo `ABC1234` e Mercosul `ABC1D23`; formato inválido retorna `invalid` e é recusado. Placa não cadastrada retorna `not_found` com aviso para preencher os dados manualmente, sem bloquear o cadastro. Quando encontrada, a consulta devolve marca, modelo, anos, cor, combustível, chassi e renavam **do próprio cadastro da oficina**, além de `ordensServico`: as ordens ativas vinculadas ao veículo (número, entrada, saída, status, problema relatado e valor total), ordenadas da mais recente para a mais antiga. Os dados alimentam o formulário de veículos e a aba Integrações; ordens inativadas (soft delete) não aparecem.
 
 ---
 
@@ -198,7 +198,7 @@ src/
 │       ├── notification.ts      # aviso wa.me e histórico
 │       ├── notification-validation.ts # validação/normalização do canal e do destino
 │       ├── notification-delivery.ts   # deep links wa.me, sms: e mailto:
-│       ├── plate.ts             # placa consultada na tabela veiculos (sem rede)
+│       ├── plate.ts             # placa consultada em veiculos + ordens_servico (sem rede)
 │       ├── lookup.ts            # fetch JSON com timeout e status normalizados
 │       ├── cep.ts               # ViaCEP
 │       ├── cnpj.ts              # CPF/CNPJ + Minha Receita (clientes e fornecedores)
@@ -224,7 +224,7 @@ A comunicação renderer → main passa pelo `preload` via `contextBridge` + `ip
 - CRUD completo das 8 entidades e resolução das FKs nas listagens, incluindo persistência e busca por CEP dos novos campos;
 - validação local de CEP/CPF/CNPJ: documentos inválidos bloqueiam `db:create`, `api:cep` e `api:cnpj` retornam `invalid` e **nenhuma chamada de rede é feita**; CNPJ válido consulta a Minha Receita e mapeia `municipio` para cidade, `ddd_telefone_1` para telefone e `descricao_situacao_cadastral` para a situação exibida no tooltip/status;
 - mock de `global.fetch` cobrindo `found`, `not_found` (HTTP 404, CNPJ `99999999000191`) e `unavailable` na Minha Receita: fornecedores **bloqueiam** `db:create`/`db:update` nos três casos de falha (e não bloqueiam edição sem alterar o CNPJ), enquanto clientes PJ com `not_found`/`unavailable` continuam sendo criados;
-- busca de placa pelo canal `db:plate` **sem rede**: encontra veículo cadastrado (com placa normalizada), retorna `not_found` para placa inexistente e `invalid` para formato inválido, sem nenhuma requisição externa;
+- busca de placa pelo canal `db:plate` **sem rede**: encontra veículo cadastrado (com placa normalizada) e suas ordens de serviço ativas, retorna `not_found` para placa inexistente e `invalid` para formato inválido, sem nenhuma requisição externa;
 - **soft delete**: `db:delete` mantém a linha com `ativo = 0`, e `db:get`, `db:list`, `db:options` e `db:dashboard` ignoram registros inativados; FKs físicas não recebem cascade/SET NULL, e os rótulos de FK mostram `—` quando o pai está inativo; `UNIQUE` com valor inativado sugere reativação na mensagem de erro;
 - baixa/devolução de estoque e recálculo do total da OS, incluindo a **reativação do mesmo item** (`os:addItem`/`db:create` com a mesma peça na mesma OS) e a inativação por `os:removeItem`/`db:delete`;
 - avisos: link `wa.me` com DDI, `sms:` e `mailto:` (com assunto/corpo), incluindo o alias `Email` sem hífen normalizado para `E-mail` e persistido com status `ABERTO_NO_APP`;

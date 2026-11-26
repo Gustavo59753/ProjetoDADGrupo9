@@ -1,5 +1,5 @@
 import { STATUS_COLORS } from '@shared/schema';
-import type { FieldDef } from '@shared/types';
+import type { FieldDef, PlateOrdemServico } from '@shared/types';
 
 export function escapeHTML(value: unknown): string {
   return String(value ?? '')
@@ -58,6 +58,26 @@ export function icon(name: string, cls = 'w-5 h-5'): string {
 export function badge(text: string): string {
   const color = STATUS_COLORS[text] ?? 'bg-slate-700/40 text-slate-300 ring-slate-600/40';
   return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide ring-1 ring-inset ${color}">${escapeHTML(String(text).replace(/_/g, ' '))}</span>`;
+}
+
+/** Histórico de OS devolvido junto com a consulta por placa (formulário e Integrações). */
+export function plateOrdersHtml(orders: PlateOrdemServico[]): string {
+  if (!orders.length) {
+    return '<p class="mt-2 text-[11px] text-slate-500">Nenhuma ordem de serviço relacionada a esta placa.</p>';
+  }
+  return `<div class="mt-3 border-t border-slate-800 pt-2">
+    <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Ordens de serviço (${orders.length})</p>
+    <ul class="space-y-1">
+      ${orders.map((order) => `
+        <li class="rounded-lg bg-slate-950/60 px-2.5 py-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-semibold text-slate-200">${escapeHTML(order.numero)} <span class="font-normal text-slate-500">· ${escapeHTML(dateFmt(order.dataEntrada))}</span></span>
+            <span class="flex items-center gap-2">${badge(order.status)}<span class="text-xs text-emerald-300">${escapeHTML(money(order.valorTotal))}</span></span>
+          </div>
+          ${order.descricaoProblema ? `<p class="mt-1 truncate text-[11px] text-slate-400" title="${escapeHTML(order.descricaoProblema)}">${escapeHTML(order.descricaoProblema)}</p>` : ''}
+        </li>`).join('')}
+    </ul>
+  </div>`;
 }
 
 export function toast(message: string, type: 'success' | 'error' | 'info' = 'success'): void {

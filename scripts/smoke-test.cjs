@@ -656,9 +656,25 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
       plate.data.anoModelo === 2022 && plate.data.cor === 'Prata',
       'db:plate mapeou anoModelo e cor do veículo'
     );
+    assert(
+      plate.data.ordensServico.length === 1 &&
+        plate.data.ordensServico[0].numero === 'OS-TESTE' &&
+        plate.data.ordensServico[0].status === 'ABERTA' &&
+        Number(plate.data.ordensServico[0].valorTotal) === 100,
+      'db:plate retornou a ordem de serviço ativa do veículo'
+    );
+    assert(
+      plate.data.ordensServico[0].dataEntrada === '2026-11-23' &&
+        plate.data.ordensServico[0].dataSaida === null &&
+        plate.data.ordensServico[0].descricaoProblema === null,
+      'db:plate normalizou dataEntrada, dataSaida e descricaoProblema da OS'
+    );
 
     const plateNormalized = await call('db:plate', 'tst-1a23');
-    assert(plateNormalized.status === 'found', 'db:plate normaliza placa com hífen e minúsculas');
+    assert(
+      plateNormalized.status === 'found' && plateNormalized.data.ordensServico.length === 1,
+      'db:plate normaliza placa com hífen e minúsculas e mantém as OS vinculadas'
+    );
 
     const missingPlate = await rawCall('db:plate', 'ZZZ9999');
     assert(
@@ -683,6 +699,11 @@ const rawCall = (channel, ...args) => handlers[channel](null, ...args);
   await call('db:delete', 'notificacoes', avisoEmailAlias.notificationId);
   await call('db:delete', 'notificacoes', notify.notificationId);
   await call('db:delete', 'ordens_servico', os.id);
+  const plateSemOsAtiva = await call('db:plate', 'TST1A23');
+  assert(
+    plateSemOsAtiva.status === 'found' && plateSemOsAtiva.data.ordensServico.length === 0,
+    'db:plate não devolve ordens de serviço inativadas'
+  );
   await call('db:delete', 'veiculos', veiculo.id);
   await call('db:delete', 'mecanicos', mecanicoEmail.id);
   await call('db:delete', 'fornecedores', fornecedorCnpjId);

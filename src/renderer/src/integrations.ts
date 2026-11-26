@@ -1,4 +1,4 @@
-import { escapeHTML, icon, money, toast } from './ui';
+import { escapeHTML, icon, money, plateOrdersHtml, toast } from './ui';
 
 export function renderIntegrations(mount: HTMLElement): void {
   mount.innerHTML = `
@@ -10,7 +10,7 @@ export function renderIntegrations(mount: HTMLElement): void {
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
       ${panel('api-dollar', 'Cotação do dólar', 'dollar', 'AwesomeAPI → fallback Banco Central (PTAX).', `
         <button id="test-dollar" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-400">Consultar cotação</button>`)}
-      ${panel('api-plate', 'Dados da placa', 'car', 'Consulta feita no cadastro de veículos da oficina.', `
+      ${panel('api-plate', 'Dados da placa', 'car', 'Consulta feita no cadastro de veículos da oficina, incluindo as ordens de serviço do veículo.', `
         <div class="flex gap-2"><input id="plate-input" value="ABC1D23" class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-brand-400">
         <button id="test-plate" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-400">Buscar</button></div>`)}
       ${panel('api-fipe', 'Tabela FIPE', 'tag', 'API aberta do Preço FIPE (marca e modelo).', `
@@ -52,7 +52,7 @@ export function renderIntegrations(mount: HTMLElement): void {
         return toast(result.message, 'info');
       case 'found': {
         const p = result.data;
-        show('res-plate', `<p class="font-semibold text-white">${escapeHTML(p.marca ?? '')} ${escapeHTML(p.modelo ?? '')}</p><p class="mt-1 text-xs text-slate-400">${escapeHTML(p.placa)} · ${escapeHTML(p.anoFabricacao ?? '—')}/${escapeHTML(p.anoModelo ?? '—')} · ${escapeHTML(p.cor ?? '')}</p><p class="mt-2 text-[11px] text-emerald-400">Dados obtidos do cadastro de veículos da oficina.</p>`);
+        show('res-plate', `<p class="font-semibold text-white">${escapeHTML(p.marca ?? '')} ${escapeHTML(p.modelo ?? '')}</p><p class="mt-1 text-xs text-slate-400">${escapeHTML(p.placa)} · ${escapeHTML(p.anoFabricacao ?? '—')}/${escapeHTML(p.anoModelo ?? '—')} · ${escapeHTML(p.cor ?? '')}</p><p class="mt-2 text-[11px] text-emerald-400">Dados obtidos do cadastro de veículos da oficina.</p>${plateOrdersHtml(p.ordensServico)}`);
         return;
       }
     }

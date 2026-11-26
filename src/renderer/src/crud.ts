@@ -5,7 +5,7 @@ import { digits, maskDocument, setupClientForm } from './clientes';
 import { setupEmailField } from './email';
 import { normalizeChannel, setupNotificationForm } from './notificacoes';
 import { bindInputMask, setupPhoneFields } from './phone';
-import { badge, confirmDialog, dateFmt, escapeHTML, fieldHtml, icon, money, openModal, readForm, toast, validateForm } from './ui';
+import { badge, confirmDialog, dateFmt, escapeHTML, fieldHtml, icon, money, openModal, plateOrdersHtml, readForm, toast, validateForm } from './ui';
 
 type Row = Record<string, any>;
 type LookupStatus = 'found' | 'invalid' | 'not_found' | 'unavailable' | 'error';
@@ -351,7 +351,7 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
             <button type="button" id="fipe-lookup" class="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
               ${icon('info', 'w-4 h-4')} Consultar FIPE (marca + modelo)
             </button>
-            <span class="text-[11px] text-slate-500">Consulta feita no cadastro de veículos da oficina. Se a placa não estiver cadastrada, preencha os dados manualmente.</span>
+            <span class="text-[11px] text-slate-500">Consulta feita no cadastro de veículos da oficina, incluindo as ordens de serviço do veículo. Se a placa não estiver cadastrada, preencha os dados manualmente.</span>
           </div>
           <div id="lookup-info" class="mt-3 hidden rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300"></div>` : ''}
         ${entity === 'fornecedores' ? `
@@ -393,8 +393,8 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
         if (!response.ok) return toast(response.error!, 'error');
         const result = response.data!;
         const info = modal.element.querySelector<HTMLElement>('#lookup-info')!;
-        const showInfo = (message: string) => {
-          info.textContent = message;
+        const showInfo = (message: string, extraHtml = '') => {
+          info.innerHTML = `${escapeHTML(message)}${extraHtml}`;
           info.classList.remove('hidden');
         };
         info.classList.add('hidden');
@@ -422,8 +422,8 @@ export async function renderCrud(entity: EntityName, mount: HTMLElement, opts: C
             set('cor', data.cor);
             set('combustivel', data.combustivel);
             set('chassi', data.chassi);
-            showInfo('Dados obtidos do cadastro de veículos da oficina.');
-            toast('Dados do veículo preenchidos.', 'success');
+            showInfo('Dados obtidos do cadastro de veículos da oficina.', plateOrdersHtml(data.ordensServico));
+            toast('Dados do veículo e ordens de serviço carregados.', 'success');
             return;
           }
         }
